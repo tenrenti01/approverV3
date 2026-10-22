@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DPWH Approver Portal</title>
+<!-- Makes PC and phone offer "Install". Ignored inside Apps Script. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#08295F">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    /* Bureau of Equipment look: tokens copied from the BOE Employee System */
+  :root{
+    --orange:#FF7A33; --orange-2:#F26522;
+    --navy-0:#061E45; --navy-1:#08295F; --navy-2:#0D47A1; --navy-3:#1658C2;
+    --grad:linear-gradient(100deg,#061E45 0%,#08295F 40%,#0D47A1 75%,#1658C2 100%);
+    --grad-o:linear-gradient(100deg,#D9531A 0%,#F26522 45%,#FF8A47 100%);
+    --bg:#EEF2F8; --card:#ffffff; --soft:#F3F5F9; --ink:#1d1d1f; --head:#08295F; --muted:#626a78;
+    --line:#E5E7EC; --line-2:#D3DAE5; --dots:rgba(6,30,69,.055);
+    --plantilla:#0D47A1; --plantilla-soft:#E3ECFA; --contract:#D9531A; --contract-soft:#FFEDE3;
+    --people:#1d7a45; --people-soft:#E1F3E8; --bad:#B42318; --bad-soft:#FDE8E6; --warn:#8F5400; --warn-soft:#FFF1D6;
+    --r:16px; --r-sm:10px;
+    --shadow:0 12px 32px rgba(6,30,69,.24); --shadow-hi:0 26px 56px rgba(6,30,69,.36);
+    --shadow-card:0 8px 22px rgba(6,30,69,.08); --shadow-card-hi:0 18px 38px rgba(6,30,69,.16);
+    --ease:cubic-bezier(.22,.61,.36,1); --io:cubic-bezier(.77,0,.18,1);
+    --cond:"Barlow Condensed","Arial Narrow",sans-serif;
+    --body:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --waves:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 120' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='white' stroke-width='1.4'%3E%3Cpath d='M0 60 Q75 20 150 60 T300 60 T450 60 T600 60'/%3E%3Cpath d='M0 85 Q75 45 150 85 T300 85 T450 85 T600 85'/%3E%3C/g%3E%3C/svg%3E");
+    /* older names used all through the page, now pointing at the BOE colours */
+    --navy:var(--navy-1); --navy-soft:var(--plantilla-soft); --orange-soft:var(--contract-soft);
+    --ok:var(--people); --ok-bg:var(--people-soft); --bad-bg:var(--bad-soft); --warn-bg:var(--warn-soft); --field:var(--soft);
+    --pad:14px;
+    color-scheme:light;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+  body{background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px}
+
+  /* fixed three-part shell: nothing outside .mid ever moves */
+  .app{position:fixed;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  .hdr{flex:none;padding:10px var(--pad) 8px;border-bottom:1px solid var(--line)}
+  .mid{flex:1;min-height:0;position:relative;overflow:hidden}
+  .pane{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;
+    padding:12px var(--pad);overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .ftr{flex:none;padding:10px var(--pad) calc(10px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--line);display:flex;gap:10px}
+
+  .ttl{display:flex;align-items:center;gap:9px}
+
+  .ttl h1{margin:0;font-size:15px;font-weight:700;line-height:1.1}
+  .ttl p{margin:1px 0 0;font-size:11.5px;color:var(--muted)}
+
+  /* wizard progress */
+  .bar{display:flex;gap:4px;margin-top:9px}
+  .bar i{flex:1;height:4px;border-radius:2px;background:var(--line)}
+  .bar i.on{background:var(--navy)}
+  .stepname{margin:7px 0 0;font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.2px}
+
+  label{display:block;font-size:12.5px;font-weight:600;margin:0 0 5px;color:var(--muted)}
+  .req{color:var(--bad)}
+  input{width:100%;padding:12px;border-radius:11px;border:1px solid var(--line);
+    background:var(--field);color:var(--ink);font-size:16px;outline:none}
+  input:focus{border-color:var(--navy);box-shadow:0 0 0 3px var(--navy-soft)}
+  .f{margin-bottom:12px}
+  /* flexbox, not grid — older Android browsers have no CSS Grid */
+
+  .btn{flex:1;border:0;border-radius:12px;cursor:pointer;background:var(--navy);color:#fff;
+    font:inherit;font-weight:700;font-size:16px;padding:14px;min-height:50px}
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.55;cursor:not-allowed}
+  .btn.sec{background:transparent;color:var(--navy);border:1px solid var(--line);flex:0 0 34%}
+  .btn.go{background:var(--ok)}
+
+  .msg{font-size:13.5px;padding:10px 12px;border-radius:10px;line-height:1.45;margin-bottom:10px}
+  .msg.err{background:var(--bad-bg);color:var(--bad)}
+  .msg.ok{background:var(--ok-bg);color:var(--ok)}
+
+  /* items */
+  .it{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+  .it input{padding:11px;font-size:15px}
+  .it input[data-k="description"]{flex:1 1 auto;min-width:0}
+  .it input[data-k="quantity"]{flex:0 0 86px;width:86px}
+  .it .x{flex:0 0 40px;border:1px solid var(--line);background:var(--field);color:var(--muted);
+    border-radius:10px;height:44px;cursor:pointer;font-size:18px}
+
+  .add{width:100%;margin-top:2px;background:transparent;border:1px dashed var(--line);
+    color:var(--navy);border-radius:11px;padding:11px;cursor:pointer;font:inherit;font-weight:600;font-size:13.5px}
+
+  /* signature */
+  .padwrap{flex:1;min-height:150px;display:flex;flex-direction:column}
+  .pad{flex:1;min-height:0;border:1px solid var(--line);border-radius:12px;background:var(--field);position:relative}
+  .pad canvas{width:100%;height:100%;display:block;touch-action:none;border-radius:12px}
+  .pad .ph{position:absolute;left:14px;bottom:12px;color:var(--muted);font-size:12.5px;pointer-events:none}
+  .padbar{display:flex;justify-content:space-between;align-items:center;margin-top:7px}
+  .padbar span{font-size:12px;color:var(--muted)}
+  .clr{background:transparent;border:1px solid var(--line);color:var(--muted);
+    border-radius:9px;padding:7px 14px;font:inherit;font-size:12.5px;cursor:pointer}
+
+  /* tabs */
+  .tabs{flex:none;display:flex;gap:4px;background:var(--field);border-radius:11px;padding:4px;margin-bottom:10px}
+  .tabs button{flex:1;border:0;background:transparent;color:var(--muted);font:inherit;
+    font-weight:700;font-size:13.5px;padding:9px;border-radius:8px;cursor:pointer}
+  .tabs button.on{background:var(--bg);color:var(--navy);box-shadow:0 1px 2px rgba(16,24,40,.1)}
+
+  /* the A4 slip, scaled down to fit — this is what removes the sideways scroll */
+  .slipwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .slipbox{position:relative;overflow:hidden;background:#fff;border:1px solid var(--line);border-radius:6px}
+  .slipbox > .ris-page{position:absolute !important;top:0;left:0;transform-origin:top left}
+
+  /* compact stepper */
+
+  .st{flex:1;text-align:center}
+  .st .d{width:22px;height:22px;border-radius:50%;margin:0 auto 4px;display:flex;align-items:center;
+    justify-content:center;font-size:11px;font-weight:700;background:var(--bg);color:var(--muted);
+    border:2px solid var(--line)}
+  .st .l{font-size:9.5px;color:var(--muted);font-weight:600;line-height:1.15}
+  .st.done .d{background:var(--ok);border-color:var(--ok);color:#fff}
+
+  /* detail list */
+  .dl{flex:1;min-height:0;overflow-y:auto}
+  .dl .r{display:flex;gap:8px;padding:9px 2px;border-bottom:1px solid var(--line)}
+  .dl .r span:first-child{flex:0 0 40%;color:var(--muted);font-size:12.5px}
+  .dl .r span:last-child{flex:1 1 auto;min-width:0;font-weight:600;font-size:13.5px;word-break:break-word}
+
+  /* verdict card */
+  .card{flex:none;border-radius:14px;padding:20px 16px;text-align:center;margin-bottom:10px}
+  .card.ok{background:var(--ok-bg)} .card.bad{background:var(--bad-bg)}
+  .card .b{width:54px;height:54px;border-radius:50%;margin:0 auto 9px;display:flex;align-items:center;
+    justify-content:center;font-size:30px;font-weight:700;color:#fff}
+  .card.ok .b{background:var(--ok)} .card.bad .b{background:var(--bad)}
+  .card h2{margin:0;font-size:20px;font-weight:800;letter-spacing:.04em}
+  .card.ok h2{color:var(--ok)} .card.bad h2{color:var(--bad)}
+  .card p{margin:5px 0 0;font-size:13px;color:var(--muted);line-height:1.45}
+
+  .mid.center{display:flex;align-items:center;justify-content:center}
+  .note{font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5}
+  [hidden]{display:none!important}
+
+  /* ===== DPWH theme layer ===== */
+    @keyframes spin{to{transform:rotate(360deg)}}
+  .mid{background:var(--bg)}
+  .pane{animation:glide .35s cubic-bezier(.2,.8,.2,1)}
+  @keyframes glide{from{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  input,textarea{background:var(--card)}
+  input:focus,textarea:focus{border-color:var(--navy-2);box-shadow:0 0 0 3px var(--navy-soft)}
+  .ftr{background:var(--card);box-shadow:0 -6px 18px -14px rgba(6,30,69,.4)}
+  .btn{background:linear-gradient(135deg,var(--navy),var(--navy-2));box-shadow:var(--shadow);transition:transform .2s ease,box-shadow .2s ease,opacity .2s}
+  .btn.go{background:linear-gradient(135deg,var(--orange),var(--orange-2))}
+  .btn.sec{background:var(--card);color:var(--navy);border:1px solid var(--line);box-shadow:none}
+  .btn.ret{background:var(--card);color:var(--orange);border:1.5px solid var(--orange);box-shadow:none;flex:0 0 32%}
+  .add{color:var(--navy-2)}
+  .msg.warn{background:var(--orange-soft);color:var(--warn);border-left:4px solid var(--orange)}
+  .tabs{background:var(--navy-soft)}
+  .tabs button.on{background:var(--card);color:var(--navy)}
+
+  .st.ret .d{background:var(--orange);border-color:var(--orange);color:#fff}
+  .card{box-shadow:var(--shadow);border:1px solid var(--line)}
+  .slipbox{box-shadow:var(--shadow)}
+  .dl .r{background:var(--card)}
+  textarea{width:100%;padding:12px;border-radius:11px;border:1px solid var(--line);color:var(--ink);font:inherit;font-size:16px;resize:vertical;outline:none}
+
+  /* bottom sheet (Return with remarks) */
+  .sheet{position:fixed;inset:0;background:rgba(6,30,69,0);display:flex;align-items:flex-end;justify-content:center;
+    transition:background .25s ease;z-index:50}
+  .sheet.on{background:rgba(6,30,69,.35)}
+  .sheet-in{width:100%;max-width:560px;background:var(--card);border-radius:20px 20px 0 0;
+    padding:20px 18px calc(18px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.8,.2,1);
+    display:flex;flex-direction:column;gap:10px;border-top:4px solid var(--orange)}
+  .sheet.on .sheet-in{transform:none}
+  .sheet-in h3{margin:0;font-size:17px;color:var(--navy)}
+  .sheet-in p{margin:0;font-size:13.5px;color:var(--muted)}
+  .sheet-btns{display:flex;gap:10px}
+
+  /* admin dashboard */
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);min-width:0}
+  .panel h3{margin:0 0 10px;font-size:14px;color:var(--navy);display:flex;align-items:center;gap:7px}
+  .panel h3 svg{width:17px;height:17px;stroke:var(--orange);fill:none;stroke-width:2}
+
+  .empty{font-size:13px;color:var(--muted);padding:14px 0;text-align:center}
+
+  .chip{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;padding:6px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+
+  .pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap}
+
+  .p-returned{background:var(--orange-soft);color:var(--contract)}
+
+  .p-received{background:var(--ok-bg);color:var(--ok)}
+
+  /* auto-fill hints, vehicle card, warnings, summary, tools */
+  .hint{font-size:12px;margin-top:6px;color:var(--ok);display:flex;align-items:center;gap:6px;min-height:16px}
+  .hint.off{color:var(--muted)}
+
+  .sum{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:13px;
+    display:grid;grid-template-columns:auto 1fr;gap:4px 12px;box-shadow:var(--shadow)}
+  .sum span{color:var(--muted)} .sum b{color:var(--ink);min-width:0;word-break:break-word}
+
+  /* ===== approver portal ===== */
+
+  /* header: deeper navy gradient with two thin curves drifting across it */
+
+  /* a soft page wash so the cards sit on something, not flat grey */
+  @media (min-width:900px){ body.portal .pane{padding-left:calc((100% - 860px)/2);padding-right:calc((100% - 860px)/2)} }
+
+  /* sign in */
+  .loginbox{flex:none;max-width:380px;width:100%;margin:12px auto 0;background:var(--card);border:1px solid var(--line);
+    border-radius:22px;padding:24px 22px 26px;box-shadow:0 22px 44px -26px rgba(6,30,69,.6);
+    display:flex;flex-direction:column;gap:2px;text-align:center;position:relative;overflow:hidden;
+    animation:rise .45s cubic-bezier(.2,.8,.2,1)}
+  .loginbox::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;
+    background:linear-gradient(90deg,var(--orange),var(--orange-2),var(--navy-2))}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .lgmark{width:78px;height:78px;margin:4px auto 8px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 30% 25%,#fff,var(--navy-soft));box-shadow:0 8px 20px -10px rgba(6,30,69,.55)}
+  .lgmark img{width:60px;height:60px}
+  .loginbox h2{margin:0;font-size:21px;color:var(--navy);letter-spacing:.01em}
+  .loginbox .sub{margin:3px 0 16px;font-size:13px;color:var(--muted)}
+  .lgf{text-align:left;margin-bottom:13px}
+  select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);
+    color:var(--ink);font:inherit;font-size:16px;outline:none;transition:border-color .25s,box-shadow .25s,background .25s}
+  select:focus{border-color:var(--navy-2);box-shadow:0 0 0 3px var(--navy-soft)}
+  select.filled{background:linear-gradient(135deg,var(--ok-bg),#fff);border-color:var(--ok)}
+  .pininput{text-align:center;letter-spacing:7px;font-size:20px}
+
+  /* signed-in banner */
+  /* stacks on a phone, sits side by side on anything wider — the buttons used
+     to wrap and get clipped by the card's own overflow:hidden */
+  .hello{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:12px;color:#fff;
+    border-radius:18px;padding:15px 17px;margin-bottom:13px;position:relative;overflow:hidden;
+    background:linear-gradient(135deg,#061E45 0%,var(--navy) 45%,var(--navy-2) 100%);
+    box-shadow:0 16px 32px -20px rgba(6,30,69,.75);animation:rise .4s cubic-bezier(.2,.8,.2,1)}
+  @media (min-width:600px){ .hello{flex-direction:row;align-items:center;justify-content:space-between;gap:14px} }
+  .hello::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;
+    background:linear-gradient(90deg,var(--orange),var(--orange-2))}
+  .hello::before{content:"";position:absolute;right:-40px;top:-70px;width:170px;height:170px;border-radius:50%;
+    border:1px solid rgba(255,255,255,.12);pointer-events:none}
+  .who{min-width:0}
+  .hello small{display:block;font-size:10.5px;color:rgba(255,255,255,.82);text-transform:uppercase;letter-spacing:.09em}
+  .hello b{display:block;font-size:17px;margin-top:2px;letter-spacing:.01em}
+  .hello span{font-size:12.5px;color:rgba(255,255,255,.88)}
+  .hbtns{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .hbtns button{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;
+    padding:7px 13px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;
+    transition:background .25s ease,transform .25s ease}
+  .hbtns button:hover{background:rgba(255,255,255,.26)}
+  .hbtns button:active{transform:scale(.96)}
+  .lockb{background:linear-gradient(135deg,rgba(29,122,69,.95),rgba(29,122,69,.7))!important;border-color:transparent!important}
+
+  /* tabs */
+  .tabs .cnt{display:inline-block;min-width:21px;padding:1px 7px;border-radius:999px;background:var(--navy-soft);
+    color:var(--navy);font-size:11.5px;margin-left:5px;transition:background .3s,color .3s}
+  .tabs button.on .cnt{background:linear-gradient(135deg,var(--orange),var(--orange-2));color:#fff}
+
+  /* search / filter / sort */
+  .ctrls{flex:none;display:flex;flex-direction:column;gap:9px;margin-bottom:12px}
+  .hsearch{border-radius:999px;padding:11px 17px;font-size:14px;background:var(--card);
+    border:1px solid var(--line);transition:border-color .25s,box-shadow .25s}
+  .hsearch:focus{border-color:var(--navy-2);box-shadow:0 0 0 3px var(--navy-soft)}
+  .ctrlrow{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .chips{display:flex;gap:6px;flex:1 1 auto;flex-wrap:wrap;min-width:0}
+  .chip{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;
+    padding:7px 13px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+    transition:all .28s cubic-bezier(.2,.8,.2,1)}
+  .chip:hover{border-color:var(--navy-2);color:var(--navy)}
+  .chip.on{background:linear-gradient(135deg,var(--navy),var(--navy-2));border-color:transparent;color:#fff;
+    box-shadow:0 6px 14px -8px rgba(6,30,69,.8)}
+  .sortwrap{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .sortwrap span{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+  .sortwrap select{width:auto;padding:7px 10px;font-size:12.5px;border-radius:9px}
+  .shown{flex:none;margin:0 0 9px;font-size:12px;color:var(--muted)}
+
+  /* --- slip card: roomy, big number, friend-request style buttons --- */
+  .scard{flex:none;display:block;width:100%;text-align:left;font:inherit;color:var(--ink);background:var(--card);
+    border:1px solid var(--line);border-radius:17px;margin-bottom:13px;position:relative;overflow:hidden;
+    box-shadow:0 12px 26px -20px rgba(6,30,69,.6);
+    transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s ease,border-color .3s ease,opacity .3s ease;
+    animation:rise .4s cubic-bezier(.2,.8,.2,1)}
+  .scard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;z-index:1;
+    background:linear-gradient(180deg,var(--k,var(--navy)),color-mix(in srgb,var(--k,var(--navy)) 45%,#ffffff))}
+  @supports not (background:color-mix(in srgb,red 50%,blue)){ .scard::before{background:var(--k,var(--navy))} }
+  .scard:hover{transform:translateY(-3px);box-shadow:0 20px 38px -20px rgba(6,30,69,.7);border-color:var(--navy-soft)}
+  .scard.going{opacity:0;transform:translateX(40px) scale(.96)}
+
+  /* the tappable body — opens the full slip */
+  .cbody{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:transparent;border:0;
+    cursor:pointer;padding:16px 18px 4px 20px}
+  .scard .r1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .scard .code{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:800;color:var(--navy);
+    font-size:15.5px;letter-spacing:.06em}
+
+  .who2{margin-top:12px}
+  .who2 b{display:block;font-size:17px;font-weight:700;line-height:1.25}
+  .who2 span{display:block;font-size:13px;color:var(--muted);margin-top:1px}
+  .veh{margin-top:11px}
+  .veh b{display:block;font-size:13.5px;font-weight:700;color:var(--navy);letter-spacing:.02em}
+  .veh span{display:block;font-size:13px;color:var(--muted);margin-top:1px}
+
+  /* the number they actually need to read */
+  .qty{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin:16px 0 4px}
+  .qty b{font-size:44px;line-height:.95;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .qty .u{font-size:15px;font-weight:700;color:var(--navy-2);text-transform:uppercase;letter-spacing:.07em}
+  .qty .it{flex:1 1 100%;font-size:12.5px;color:var(--muted);margin-top:5px}
+  .scard .fl{margin:12px 0 0;font-size:12.5px;color:var(--warn);border-radius:10px;padding:9px 12px;
+    background:linear-gradient(135deg,var(--orange-soft),#fff)}
+
+  /* the two buttons, like a friend request */
+  .cacts{display:flex;gap:10px;padding:14px 18px 16px 20px}
+  .cbtn{flex:1;min-width:0;border:0;border-radius:12px;cursor:pointer;font:inherit;font-weight:700;font-size:15px;
+    padding:13px 10px;min-height:48px;transition:transform .2s ease,box-shadow .25s ease,filter .25s ease}
+  .cbtn:active{transform:scale(.97)}
+  .cbtn[disabled]{opacity:.6;cursor:default}
+  .cbtn.ok{background:linear-gradient(135deg,var(--orange),var(--orange-2));color:#fff;
+    box-shadow:0 10px 20px -12px rgba(242,101,34,.95)}
+  .cbtn.ret{background:var(--field);color:var(--ink);border:1px solid var(--line);flex:0 0 36%}
+  .cbtn.ret:hover{border-color:var(--orange);color:var(--orange)}
+  .cbtn.open{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;
+    box-shadow:0 10px 20px -12px rgba(6,30,69,.9)}
+
+  /* age chip: grey, amber past 8 hours, red past a day */
+  .chip2{font-size:11.5px;font-weight:800;border-radius:999px;padding:4px 11px;white-space:nowrap;
+    background:var(--navy-soft);color:var(--navy)}
+  .chip2.warm{background:var(--warn-bg);color:var(--warn)}
+  .chip2.late{background:linear-gradient(135deg,var(--bad),#D4452F);color:#fff}
+
+  /* ===== desktop split view: list left, open slip right ===== */
+  .mid.split{display:grid;grid-template-columns:minmax(380px,470px) 1fr;gap:0}
+  .lp,.dp{position:relative;min-width:0;min-height:0;overflow:hidden}
+  .lp{border-right:1px solid var(--line);background:var(--bg)}
+  .lp .pane,.dp .pane{position:absolute;top:0;right:0;bottom:0;left:0;overflow-y:auto;padding:12px 14px}
+  .dp{display:flex;flex-direction:column;background:var(--bg)}
+  .dp .pane{position:relative;flex:1;min-height:0}
+  .dp .pane[style*="overflow:hidden"]{overflow:hidden}
+  .lp.center{display:flex;align-items:center;justify-content:center}
+  .dp-wait{flex:1;display:flex;align-items:center;justify-content:center}
+  .dp-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);padding:30px}
+  .dp-empty .b{width:64px;height:64px;border-radius:50%;background:var(--navy-soft);color:var(--navy-2);font-size:28px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+  .dp-empty h3{margin:0;color:var(--navy);font-size:18px} .dp-empty p{margin:4px 0 0;font-size:13.5px}
+  .dpfoot{flex:none;display:flex;gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:var(--card);box-shadow:0 -6px 18px -14px rgba(6,30,69,.4)}
+  .dpfoot:empty{display:none}
+  .scard.open{border-color:var(--navy-2);box-shadow:0 0 0 2px var(--navy-soft),0 20px 38px -20px rgba(6,30,69,.7)}
+  .scard.hist.pend{opacity:.7}
+  @media (min-width:900px){ body.portal .pane{padding-left:14px;padding-right:14px} }
+
+  /* ===== card body: facts on the left, every item on the right ===== */
+  .cgrid{display:grid;grid-template-columns:1fr;gap:12px 18px;margin-top:10px}
+  @media (min-width:460px){ .cgrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} }
+  .cleft{min-width:0}
+  .ilist{list-style:none;margin:0;padding:0;align-self:start;background:var(--field);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .ilist li{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:7px 11px;font-size:13px;border-top:1px solid var(--line)}
+  .ilist li:first-child{border-top:0}
+  .ilist li span{min-width:0;color:var(--ink);line-height:1.3}
+  .ilist li b{flex:none;color:var(--navy);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .cerr{margin-top:10px;font-size:13px;font-weight:700;color:var(--bad);background:var(--bad-bg);border-radius:9px;padding:8px 11px;animation:rise .3s ease}
+  .scard.going{opacity:0;transform:translateX(40px) scale(.96)}
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,24px);
+    background:linear-gradient(135deg,#1d7a45,#35a96b);color:#fff;border-radius:999px;padding:12px 22px;
+    font-size:14px;font-weight:700;box-shadow:0 16px 34px -16px rgba(0,0,0,.6);z-index:80;
+    opacity:0;transition:opacity .3s ease,transform .3s cubic-bezier(.2,.8,.2,1);max-width:90vw;text-align:center}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+  .toast.bad{background:linear-gradient(135deg,var(--bad),#D4452F)}
+
+  /* empty states */
+  .allclear{flex:none;text-align:center;padding:34px 18px;border-radius:18px;border:1px dashed var(--line);
+    background:linear-gradient(160deg,#fff,var(--ok-bg));animation:rise .4s ease}
+  .allclear .b{width:58px;height:58px;border-radius:50%;margin:0 auto 10px;color:#fff;font-size:31px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--ok),#35a96b);
+    box-shadow:0 10px 24px -12px rgba(29,122,69,.9)}
+  .allclear h3{margin:0;color:var(--navy);font-size:17px} .allclear p{margin:5px 0 0;font-size:13px;color:var(--muted)}
+  .linkb{border:0;background:transparent;color:var(--orange);font:inherit;font-weight:700;cursor:pointer;text-decoration:underline}
+
+  /* slip screen */
+  .sliptop{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .back{align-self:flex-start;border:0;background:transparent;color:var(--navy);font:inherit;font-weight:700;
+    font-size:13.5px;padding:2px 2px 8px;cursor:pointer;transition:transform .25s ease}
+  .back:hover{transform:translateX(-3px)}
+  .slipnav{display:flex;align-items:center;gap:4px;margin-bottom:6px}
+  .slipnav span{font-size:12px;color:var(--muted);font-weight:700;min-width:84px;text-align:center}
+  .slipnav button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);
+    color:var(--navy);font-size:18px;font-weight:700;cursor:pointer;line-height:1;
+    transition:background .25s,transform .25s,opacity .25s}
+  .slipnav button:hover:not([disabled]){background:var(--navy-soft);transform:scale(1.07)}
+  .slipnav button[disabled]{opacity:.35;cursor:not-allowed}
+  .sigok{border-left:4px solid var(--ok)}
+
+  /* account */
+  .cursig{flex:none;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,var(--field),#fff);
+    border:1px dashed var(--line);border-radius:13px;padding:9px 13px;margin-bottom:10px;min-height:56px}
+  .cursig img{height:42px;max-width:150px;object-fit:contain;mix-blend-mode:multiply}
+  .cursig span{font-size:12px;color:var(--muted)}
+  .panel .btn{flex:none}
+
+  /* loading dots */
+  .loading{display:flex;gap:7px;align-items:center;justify-content:center}
+  .loading span{width:10px;height:10px;border-radius:50%;background:var(--navy-2);opacity:.35;
+    animation:bob 1.1s ease-in-out infinite}
+  .loading span:nth-child(2){animation-delay:.16s} .loading span:nth-child(3){animation-delay:.32s}
+  @keyframes bob{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-7px);opacity:1}}
+  /* After approving, the screen that follows glides up into place instead of
+     snapping. GLIDE is switched on for that one repaint only. */
+  @keyframes glideUp{from{opacity:0;transform:translate3d(0,26px,0)}to{opacity:1;transform:none}}
+  /* each part of the screen rises into place just after the one above it */
+  .glideUp > *{animation:glideUp .5s cubic-bezier(.22,.61,.36,1) both}
+  .glideUp > *:nth-child(2){animation-delay:.05s}
+  .glideUp > *:nth-child(3){animation-delay:.10s}
+  .glideUp > *:nth-child(4){animation-delay:.15s}
+  .glideUp > *:nth-child(n+5){animation-delay:.20s}
+  @media (prefers-reduced-motion:reduce){ .glideUp > *{animation:none !important} }
+
+  @media (prefers-reduced-motion:reduce){
+    .pane,.scard,.loginbox,.hello,.allclear{animation:none}
+    .loading span{animation:none}
+    .sheet-in,.sheet,.scard,.chip,.back,.slipnav button,.hbtns button{transition:none}
+  }
+
+  /* ===== fuel attendant: scanner inside the portal ===== */
+  .sc-wrap{width:100%;max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  .sc-seg{flex:none;display:flex;gap:4px;padding:4px;border-radius:13px;background:var(--navy-soft)}
+  .sc-seg button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px;font:inherit;font-weight:700;font-size:13.5px;
+    color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:background .25s,color .25s}
+  .sc-seg button.on{background:var(--card);color:var(--navy);box-shadow:0 1px 3px rgba(16,24,40,.12)}
+  .sc-grid{display:grid;grid-template-columns:1fr;gap:12px}
+  @media (min-width:900px){ .sc-seg{display:none} .sc-grid{grid-template-columns:1.1fr .9fr} .sc-grid [data-tab]{display:flex!important} }
+  .sc-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .sc-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:var(--shadow);animation:rise .35s ease}
+  .sc-h{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--navy);font-size:14px;margin-bottom:12px}
+  .sc-i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .sc-h .sc-i{color:var(--orange)}
+  .sc-hero{text-align:center;padding:8px 4px 4px}
+  .sc-art{width:116px;height:116px;margin:4px auto 14px;border-radius:24px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,var(--navy),var(--navy-2));box-shadow:0 18px 30px -18px rgba(6,30,69,.9)}
+  .sc-art .sc-i{width:60px;height:60px;color:#fff;stroke-width:1.6}
+  .sc-sweep{position:absolute;left:10%;right:10%;height:3px;border-radius:3px;top:12%;
+    background:linear-gradient(90deg,transparent,var(--orange-2),transparent);box-shadow:0 0 12px var(--orange);animation:sweep 2.2s ease-in-out infinite}
+  @keyframes sweep{0%,100%{top:12%}50%{top:86%}}
+  .sc-hero h2{margin:0 0 6px;font-size:18px;color:var(--navy)}
+  .sc-hero p{margin:0 auto 14px;max-width:340px;font-size:13.5px;color:var(--muted);line-height:1.45}
+  .sc-tips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:12px}
+  .sc-tips span{font-size:11.5px;font-weight:700;color:var(--navy);background:var(--navy-soft);border-radius:999px;padding:5px 10px}
+  .sc-btn{border:0;border-radius:13px;padding:14px 18px;font:inherit;font-weight:800;font-size:15px;color:#fff;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,var(--orange),var(--orange-2));
+    box-shadow:0 14px 24px -14px rgba(242,101,34,.9);transition:transform .2s ease,opacity .2s}
+  .sc-btn:active{transform:scale(.97)} .sc-btn[disabled]{opacity:.45;cursor:not-allowed}
+  .sc-btn.navy{background:linear-gradient(135deg,var(--navy),var(--navy-2));box-shadow:var(--shadow)}
+  .sc-btn.full{width:100%}
+  .sc-finder{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:1/1;max-height:380px;margin:0 auto}
+  .sc-finder #reader{width:100%;height:100%} .sc-finder video{object-fit:cover}
+  .sc-finder #scVid{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+  /* a square to aim with, and a line that sweeps it so it is obvious the camera is live */
+  .sc-box{position:absolute;inset:14%;border-radius:14px;box-shadow:0 0 0 2px rgba(255,255,255,.9),0 0 0 100vmax rgba(0,0,0,.35);pointer-events:none}
+  .sc-box:before{content:"";position:absolute;left:6%;right:6%;height:2px;border-radius:2px;
+    background:linear-gradient(90deg,transparent,var(--orange,#F26522),transparent);
+    animation:scSweep 2.1s cubic-bezier(.4,0,.6,1) infinite}
+  @keyframes scSweep{0%,100%{top:4%}50%{top:94%}}
+  @media (prefers-reduced-motion:reduce){ .sc-box:before{animation:none} }
+  .linkb.nowrap{white-space:nowrap;flex:none}
+  .sc-live{gap:10px}
+  .sc-btn.ghost{background:transparent;color:var(--navy,#08295F);border:1px solid var(--line,#E5E7EC);box-shadow:none;margin-top:8px}
+  .sc-live{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:12.5px;color:var(--muted)}
+  .sc-live i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px;animation:blink 1.2s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .sc-code{position:relative}
+  .sc-code input{width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:24px;font-weight:800;letter-spacing:5px;text-align:center;
+    text-transform:uppercase;padding:14px 40px 14px 14px;border-radius:13px;border:1.5px solid var(--line);background:var(--field);color:var(--navy);outline:none}
+  .sc-code input:focus{border-color:var(--navy-2);box-shadow:0 0 0 3px var(--navy-soft);background:#fff}
+  .sc-hint{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:7px 2px 12px;min-height:16px}
+  .sc-note{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.45;border-radius:12px;padding:10px 12px;margin-top:12px;
+    background:var(--navy-soft);color:var(--navy)}
+  .sc-note.warn{background:var(--orange-soft);color:var(--warn)}
+  .sc-steps{display:flex;flex-direction:column;gap:10px}
+  .sc-step{display:flex;gap:11px;align-items:flex-start}
+  .sc-step b{flex:none;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;
+    background:linear-gradient(135deg,var(--navy),var(--navy-2))}
+  .sc-step:last-child b{background:linear-gradient(135deg,var(--ok),#35a96b)}
+  .sc-step div{font-size:13px;color:var(--muted);line-height:1.4} .sc-step strong{display:block;color:var(--ink);font-size:13.5px}
+  .sc-today .r{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}
+  .sc-today .r:first-of-type{border-top:0}
+  .sc-today code{font-weight:800;color:var(--navy);letter-spacing:1px} .sc-today small{color:var(--muted)}
+  /* verdict */
+  .sc-verdict{border-radius:20px;padding:20px 18px;color:#fff;display:flex;align-items:center;gap:15px;position:relative;overflow:hidden;
+    animation:pop .45s cubic-bezier(.2,1.3,.4,1)}
+  @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+  .sc-verdict.ok{background:linear-gradient(135deg,#14592f,var(--ok) 55%,#35a96b)}
+  .sc-verdict.warn{background:linear-gradient(135deg,#A9440F,#D9531A 60%,#FF8A47)}
+  .sc-verdict.bad{background:linear-gradient(135deg,#6E0F0F,var(--bad) 55%,#D4452F)}
+  .sc-verdict::after{content:"";position:absolute;right:-50px;top:-60px;width:180px;height:180px;border-radius:50%;border:1px solid rgba(255,255,255,.2)}
+  .sc-badge{flex:none;width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center}
+  .sc-badge .sc-i{width:32px;height:32px;stroke-width:2.6}
+  .sc-verdict h2{margin:0;font-size:22px;letter-spacing:.06em}
+  .sc-verdict p{margin:3px 0 0;font-size:13.5px;opacity:.95;line-height:1.4}
+  .sc-verdict .cd{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:800;letter-spacing:2px;font-size:12px;opacity:.9;margin-top:6px}
+  .sc-qty{display:flex;align-items:baseline;gap:8px;justify-content:center;padding:6px 0 2px}
+  .sc-qty b{font-size:46px;line-height:1;font-weight:900;color:var(--navy);font-variant-numeric:tabular-nums}
+  .sc-qty span{font-size:15px;font-weight:700;color:var(--muted)}
+  .sc-items{margin:10px 0 0;padding:0;list-style:none;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .sc-items li{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;font-size:14px;border-top:1px solid var(--line)}
+  .sc-items li:first-child{border-top:0} .sc-items li b{color:var(--navy);font-variant-numeric:tabular-nums}
+  .sc-dl{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13px}
+  .sc-dl span{color:var(--muted)} .sc-dl b{min-width:0;word-break:break-word;color:var(--ink)}
+  /* done */
+  .sc-done{text-align:center;padding:26px 18px;border-radius:20px;background:linear-gradient(160deg,#fff,var(--ok-bg));border:1px solid var(--line);
+    box-shadow:var(--shadow);animation:rise .4s ease}
+  .sc-tick{width:92px;height:92px;margin:0 auto 14px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,var(--ok),#35a96b);box-shadow:0 18px 30px -14px rgba(29,122,69,.9);animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+  .sc-tick svg{width:50px;height:50px;stroke:#fff;fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;
+    stroke-dasharray:30;stroke-dashoffset:30;animation:draw .5s .25s ease forwards}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  .sc-done h2{margin:0;color:var(--navy);font-size:22px}
+  .sc-done p{margin:6px auto 0;max-width:420px;color:var(--muted);font-size:13.5px;line-height:1.5}
+  .sc-chip{display:inline-block;margin-top:12px;padding:6px 13px;border-radius:999px;background:var(--ok-bg);color:var(--ok);font-weight:800;font-size:12px;letter-spacing:.06em}
+  .sc-loader{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:50px 10px;text-align:center}
+  .sc-loader h2{margin:0;color:var(--navy);font-size:17px} .sc-loader p{margin:0;color:var(--muted);font-size:13px}
+  .sc-ring{width:54px;height:54px;border-radius:50%;border:4px solid var(--navy-soft);border-top-color:var(--orange);animation:spin .8s linear infinite}
+  .sc-foot{display:flex;gap:10px;width:100%;max-width:1060px;margin:0 auto}
+  .sc-foot .sc-btn{flex:1}
+  @media (prefers-reduced-motion:reduce){ .sc-sweep,.sc-ring,.sc-live i,.sc-verdict,.sc-tick,.sc-tick svg,.sc-card,.sc-done{animation:none} .sc-tick svg{stroke-dashoffset:0} }
+
+  /* auto-return pill: "Going home in 5… [Stay here]" */
+  .ah{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom));z-index:60;display:flex;align-items:center;gap:11px;
+    padding:8px 8px 8px 10px;border-radius:999px;color:#fff;font-size:13.5px;font-weight:700;white-space:nowrap;
+    background:linear-gradient(135deg,var(--navy),var(--navy-2));box-shadow:0 16px 30px -14px rgba(6,30,69,.8);
+    opacity:0;transform:translate(-50%,18px) scale(.96);transition:opacity .35s ease,transform .4s cubic-bezier(.2,.8,.2,1)}
+  .ah.on{opacity:1;transform:translate(-50%,0) scale(1)}
+  .ah svg{width:26px;height:26px;flex:none;transform:rotate(-90deg)}
+  .ah circle{fill:none;stroke-width:3}
+  .ah .bgc{stroke:rgba(255,255,255,.22)}
+  .ah .fgc{stroke:var(--orange-2);stroke-linecap:round;stroke-dasharray:63;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear}
+  .ah b{font-variant-numeric:tabular-nums;color:var(--orange-2)}
+  .ah button{border:0;border-radius:999px;background:#fff;color:var(--navy);font:inherit;font-size:12.5px;font-weight:800;
+    padding:7px 13px;cursor:pointer;transition:transform .2s ease}
+  .ah button:active{transform:scale(.95)}
+  @media (prefers-reduced-motion:reduce){ .ah,.ah .fgc{transition:none} }
+
+  /* ===== BOE look — Barlow Condensed headings + Inter text, navy→blue gradients, orange accents ===== */
+  body{font-family:var(--body);font-size:15px;line-height:1.5;letter-spacing:-.006em;-webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font-family:var(--body)}
+  h1,h2,h3{font-family:var(--cond);text-transform:uppercase;line-height:1.05}
+  :focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+  .mid{background:var(--bg) radial-gradient(var(--dots) 1.3px,transparent 1.6px) 0 0/30px 30px}
+  @keyframes wave{to{background-position:-600px 100%}}
+
+  /* header: white bar, thin line, short orange tab under the brand */
+  .hdr{position:relative;overflow:visible;z-index:5;color:var(--ink);padding:10px var(--pad) 12px;
+    background:rgba(255,255,255,.94);-webkit-backdrop-filter:saturate(1.4) blur(12px);backdrop-filter:saturate(1.4) blur(12px);
+    border-bottom:2px solid var(--line)}
+  .hdr::after{content:"";position:absolute;left:var(--pad);bottom:-2px;width:132px;height:2px;background:var(--orange)}
+  .ttl{gap:12px}
+  .logo{width:42px;height:42px;flex:none;border-radius:0;background:none;padding:0;object-fit:contain;box-shadow:none;
+    filter:drop-shadow(0 4px 8px rgba(6,30,69,.25));transition:transform .4s var(--ease)}
+  .ttl:hover .logo{transform:scale(1.07)}
+  .ttl h1{margin:0;font:700 1.2rem/1 var(--cond);letter-spacing:.02em;text-transform:uppercase;color:var(--head)}
+  .ttl h1 em{font-style:normal;color:var(--orange)}
+  .ttl p{margin:3px 0 0;font-size:.74rem;font-weight:500;color:var(--muted)}
+  .bar{margin-top:11px;gap:5px}
+  .bar i{height:4px;border-radius:3px;background:var(--line);transition:background .4s var(--ease)}
+  .bar i.on{background:var(--grad-o)}
+  .stepname{margin:7px 0 0;font:600 .82rem var(--cond);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .ftr{background:rgba(255,255,255,.96);border-top:2px solid var(--line);box-shadow:none}
+
+  /* form fields */
+  label{font-size:.82rem;font-weight:600;color:var(--head)}
+  input,select,textarea{border:1px solid var(--line-2);background:var(--card);border-radius:var(--r-sm);
+    transition:border-color .25s,box-shadow .25s}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,122,51,.22)}
+  .sect{font:600 .9rem var(--cond);letter-spacing:.2em;text-transform:uppercase;color:var(--orange-2);
+    border-bottom:1px solid var(--line);padding-bottom:4px;margin:2px 0 10px}
+  .it .x,.clr,.add{border-radius:var(--r-sm)}
+  .add{border-color:var(--line-2);color:var(--navy-2)}
+  .msg{border-radius:var(--r-sm)}
+  .msg.warn,.warnbox,.sc-note.warn{background:var(--warn-soft);color:var(--warn);border-left:4px solid var(--orange)}
+
+  /* buttons: navy gradient (primary), orange gradient (go), white (secondary) */
+  .btn,.cbtn,.sc-btn{position:relative;overflow:hidden;font-family:var(--body);font-weight:600;letter-spacing:0;border-radius:var(--r-sm);
+    transition:transform .3s var(--ease),box-shadow .3s var(--ease),background-position .7s var(--ease),border-color .3s,opacity .2s}
+  .btn,.cbtn.open,.sc-btn.navy{background:var(--grad);background-size:170% 100%;color:#fff;box-shadow:0 8px 20px rgba(6,30,69,.22)}
+  .btn.go,.cbtn.ok,.sc-btn{background:var(--grad-o);background-size:170% 100%;color:#fff;box-shadow:0 8px 20px rgba(242,101,34,.32)}
+  .sc-btn.navy{background:var(--grad);background-size:170% 100%;box-shadow:0 8px 20px rgba(6,30,69,.22)}
+  .btn::before,.cbtn.open::before,.cbtn.ok::before,.sc-btn::before{content:"";position:absolute;left:0;top:0;bottom:0;width:0;
+    background:var(--orange);transition:width .35s var(--ease);pointer-events:none}
+  .btn.go::before,.cbtn.ok::before,.sc-btn::before{background:var(--navy-0)}
+  .sc-btn.navy::before{background:var(--orange)}
+  .btn:active::before,.cbtn:active::before,.sc-btn:active::before{width:5px}
+  @media (hover:hover){
+    .btn:hover:not([disabled]),.cbtn:hover:not([disabled]),.sc-btn:hover:not([disabled]){transform:translateY(-2px);background-position:100% 0;box-shadow:var(--shadow-card-hi)}
+    .btn:hover:not([disabled])::before,.cbtn:hover:not([disabled])::before,.sc-btn:hover:not([disabled])::before{width:5px}
+  }
+  .btn:active,.cbtn:active,.sc-btn:active{transform:translateY(0) scale(.98)}
+  .btn.sec,.cbtn.ret{background:var(--card);color:var(--head);border:1px solid var(--line-2);box-shadow:none}
+  .btn.sec:hover,.cbtn.ret:hover{border-color:var(--orange);color:var(--head)}
+  .btn.ret{background:var(--card);color:var(--orange-2);border:1.5px solid var(--orange);box-shadow:none}
+
+  /* cards */
+  .fs,.panel,.pinbox,.sc-card,.scard,.tbl,.loginbox{border-radius:var(--r);border-color:var(--line);box-shadow:var(--shadow-card)}
+  .sum,.card,.vcard,.findbox,.cursig,.sc-items{border-radius:var(--r-sm)}
+  .sum,.card,.vcard,.findbox,.slipbox{box-shadow:var(--shadow-card)}
+  .panel h3{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid var(--line);
+    font:700 1.15rem/1.05 var(--cond);letter-spacing:.04em;text-transform:uppercase;color:var(--head)}
+  .panel h3 svg{width:30px;height:30px;padding:7px;flex:none;border-radius:9px;background:var(--grad-o);stroke:#fff;
+    box-shadow:0 4px 10px rgba(242,101,34,.32)}
+  .card h2{font-size:1.6rem;letter-spacing:.04em}
+  .vcard,.findbox{background:linear-gradient(135deg,var(--soft),#fff);border-left:4px solid var(--orange)}
+  .vcard b,.fb-t{color:var(--head)}
+  .fb-t{font:600 .82rem var(--cond);letter-spacing:.16em}
+  .vcard span{font-family:var(--cond);font-size:.8rem;font-weight:600;letter-spacing:.1em}
+  .dl .r span:first-child{font:600 .82rem var(--cond);letter-spacing:.1em;text-transform:uppercase}
+  .sum span{font-family:var(--cond);font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:.85rem}
+
+  /* segmented tabs, chips, pills */
+  .tabs,.sc-seg{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px}
+  .tabs button,.sc-seg button{font-family:var(--body);font-weight:600;border-radius:9px;color:var(--muted);transition:background .3s,color .3s}
+  .tabs button:hover,.sc-seg button:hover{color:var(--head)}
+  .tabs button.on,.sc-seg button.on{background:var(--grad);color:#fff;box-shadow:0 4px 12px rgba(6,30,69,.25)}
+  .chip{font-family:var(--body);font-weight:600}
+  .chip:hover{border-color:var(--orange);color:var(--head)}
+  .chip.on{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(6,30,69,.25)}
+  .pill,.chip2{font-size:.72rem;font-weight:600;padding:3px 10px}
+  .p-pending{background:var(--plantilla-soft);color:var(--plantilla)}
+  .p-returned{background:var(--contract-soft);color:var(--contract)}
+  .p-ready{background:var(--plantilla-soft);color:var(--plantilla)}
+  .p-received{background:var(--people-soft);color:var(--people)}
+  .p-cancelled{background:var(--soft);color:var(--muted);border:1px solid var(--line)}
+  .chip2{background:var(--plantilla-soft);color:var(--plantilla)}
+  .chip2.warm{background:var(--warn-soft);color:var(--warn)}
+  .chip2.late{background:linear-gradient(100deg,#6E0F0F,var(--bad));color:#fff}
+
+  /* codes and big numbers: BOE uses Inter for digits and Barlow Condensed for the large figures */
+  .rcv-code,.scard .code,.tbl .code,.fb-row input,.sc-code input,.sc-today code,.sc-verdict .cd{font-family:var(--body);font-variant-numeric:tabular-nums}
+  .qty b,.sc-qty b,.rcv-qty b{font-family:var(--cond);font-weight:800;letter-spacing:.005em}
+  .qty b{font-size:54px}.sc-qty b{font-size:58px}.rcv-qty b{font-size:48px}
+  .qty .u,.rcv-qty span{font-family:var(--cond);font-weight:600;letter-spacing:.16em}
+
+  /* bottom sheet + toast + auto-return pill */
+  .sheet.on{background:rgba(6,30,69,.62);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .sheet-in{border-radius:var(--r) var(--r) 0 0;box-shadow:0 -20px 50px rgba(6,30,69,.35)}
+  .sheet-in h3{font-size:1.35rem;letter-spacing:.04em}
+  .toast{background:var(--grad);border-radius:12px;padding:12px 20px 12px 26px;font-weight:600;box-shadow:var(--shadow-hi);overflow:hidden}
+  .toast::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--orange)}
+  .toast.bad{background:linear-gradient(100deg,#6E0F0F,var(--bad))}
+  .toast.bad::before{background:#FFB199}
+  .ah{background:var(--grad);box-shadow:var(--shadow-hi)}
+  .ah .fgc{stroke:var(--orange)}
+  .ah b{color:var(--orange-2)}
+  .ah button{font-family:var(--body);font-weight:700;color:var(--head)}
+  .loading span{background:var(--orange)}
+
+  /* --- approver / fuel-attendant pieces in the BOE look --- */
+  body.portal .mid{background:var(--bg) radial-gradient(var(--dots) 1.3px,transparent 1.6px) 0 0/30px 30px}
+  .lp,.dp{background:var(--bg) radial-gradient(var(--dots) 1.3px,transparent 1.6px) 0 0/30px 30px}
+  .loginbox::before{height:4px;background:var(--grad-o)}
+  .lgmark{width:84px;height:84px;border-radius:0;background:none;box-shadow:none;filter:drop-shadow(0 6px 12px rgba(6,30,69,.28))}
+  .lgmark img{width:72px;height:72px}
+  .loginbox h2{font-size:1.9rem;letter-spacing:.02em;color:var(--head)}
+  .hsearch:focus,.sc-code input:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,122,51,.22)}
+  .hsearch{border-radius:12px;background:var(--soft)}
+  .sortwrap span{font:600 .8rem var(--cond);letter-spacing:.12em}
+
+  /* signed-in banner: navy gradient box, orange edge, drifting waves */
+  .hello{background:var(--grad);background-size:170% 100%;border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px 16px 24px}
+  .hello>*{position:relative;z-index:1}
+  .hello::after{left:0;top:0;bottom:0;right:auto;width:6px;height:auto;background:var(--orange)}
+  .hello::before,.sc-verdict::after{content:"";position:absolute;left:0;right:0;bottom:0;top:auto;width:auto;height:55%;border:0;border-radius:0;
+    opacity:.16;pointer-events:none;background:var(--waves) repeat-x 0 100%/600px 100%;animation:wave 26s linear infinite}
+  .hello small{font:600 .8rem var(--cond);letter-spacing:.2em}
+  .hello b{margin-top:3px;font:700 1.5rem/1.05 var(--cond);letter-spacing:.03em;text-transform:uppercase}
+  .hbtns button{font-weight:600;border-color:rgba(255,255,255,.28)}
+
+  /* slip cards */
+  .scard:hover{box-shadow:var(--shadow-card-hi);border-color:var(--line-2)}
+  .scard.open{border-color:var(--orange);box-shadow:0 0 0 2px rgba(255,122,51,.28),var(--shadow-card-hi)}
+  .scard .code{color:var(--head);font-weight:700}
+  .who2 b{font:600 1.05rem/1.25 var(--body);color:var(--head)}
+  .veh b{color:var(--head)}
+  .scard .fl{background:var(--warn-soft)}
+  .dp-empty h3{font-size:1.4rem;letter-spacing:.04em}
+
+  /* fuel scanner */
+  .sc-card,.sc-done{box-shadow:var(--shadow-card)}
+  .sc-art{background:var(--grad);box-shadow:var(--shadow)}
+  .sc-hero h2{font-size:1.5rem;letter-spacing:.04em;color:var(--head)}
+  .sc-h{font:700 1.05rem var(--cond);letter-spacing:.06em;text-transform:uppercase;color:var(--head)}
+  .sc-h .sc-i{width:30px;height:30px;padding:7px;border-radius:9px;background:var(--grad-o);color:#fff;box-shadow:0 4px 10px rgba(242,101,34,.32)}
+  .sc-step b{background:var(--grad);font-family:var(--cond)}
+  .sc-code input{color:var(--head);border:1.5px solid var(--line-2)}
+  .sc-verdict{border-radius:var(--r)}
+  .sc-verdict>*{position:relative;z-index:1}
+  .sc-verdict h2{font-size:1.9rem;letter-spacing:.05em}
+  .sc-done h2{font-size:1.8rem;color:var(--head)}
+  .sc-loader h2{font-size:1.3rem;color:var(--head)}
+  .sc-items,.sc-note,.sc-finder{border-radius:var(--r-sm)}
+  @media (prefers-reduced-motion:reduce){ .hello::before,.sc-verdict::after{animation:none} }
+
+  /* ===== smooth motion: nothing flashes, nothing jumps; pages glide in once, redraws are silent ===== */
+  *{-webkit-tap-highlight-color:transparent}
+  a,button,input,select,textarea,label,.scard,.chip,.tabs button{touch-action:manipulation}
+  .pane,.itemlist,.dl,.dash,.tbl{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .hdr{-webkit-backdrop-filter:none;backdrop-filter:none;background:#fff}
+  .pane{animation:none}
+  .pane.pane-in{animation:paneIn .45s var(--ease) backwards}
+  @keyframes paneIn{from{opacity:0;transform:translate3d(0,14px,0)}}
+  @keyframes fadeIn{from{opacity:0}}
+  .loginbox,.hello,.allclear,.scard,.rcv-card,.sc-card,.sc-done{animation:none}
+  .rcv-ic{animation:none}
+  .pane-in .rcv-ic{animation:pop .5s var(--ease) .15s backwards}
+  .vcard{animation:fadeIn .35s var(--ease)}
+  .slipbox{opacity:0;transition:opacity .4s var(--ease)}
+  .slipbox.fit{opacity:1}
+  .slipbox:not(.fit){animation:slipShow 0s 1.5s forwards}   /* safety net: never stays hidden */
+  @keyframes slipShow{to{opacity:1}}
+  .slipwrap,.dl{animation:fadeIn .3s var(--ease)}
+  .ftr .btn,.dpfoot .btn{animation:fadeIn .35s var(--ease) backwards}
+  /* the drifting waves move with transform (cheap, smooth) instead of repainting a background every frame */
+  .hello::before,.kpi::after,.rcv-card::before,.sc-verdict::after{right:auto;width:calc(100% + 600px);background-position:0 100%;
+    animation:waveMove 26s linear infinite;will-change:transform}
+  @keyframes waveMove{to{transform:translate3d(-600px,0,0)}}
+  @media (prefers-reduced-motion:reduce){ .pane.pane-in,.slipwrap,.dl,.ftr .btn,.dpfoot .btn,.vcard{animation:none} .slipbox{opacity:1;transition:none} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hdr">
+    <div class="ttl">
+      <img class="logo" id="logo" alt="DPWH">
+      <div>
+        <h1 id="hTitle">Approver <em>Portal</em></h1>
+        <p id="hSub">DPWH · Bureau of Equipment</p>
+      </div>
+    </div>
+    <div class="bar" id="bar" hidden></div>
+    <p class="stepname" id="stepName" hidden></p>
+  </div>
+  <div class="mid" id="mid"></div>
+  <div class="ftr" id="ftr"></div>
+</div>
+
+  <!-- Inside Apps Script, doGet() fills this block with the startup details.
+       On GitHub Pages it stays as the raw tag, which the page detects. -->
+  <script id="bootData" type="application/json"><?!= BOOT ?></script>
+  <script>
+  /* =====================================================================
+   *  GITHUB PAGES SETTINGS
+   *  Only used when this page is served from GitHub. Inside Apps Script
+   *  every line below is ignored, so the same file works in both places.
+   * ===================================================================== */
+  var SITE = {
+    api: '',                     // <<< PASTE your Apps Script web app address here (it ends with /exec)
+    key: 'apv',                  // keeps this app's saved address and passcode apart from the other app's
+    rememberPasscode: true,      // kept for older copies; the passcode is now always remembered
+    title: 'DPWH Approver Portal'
+  };
+
+  /* Is this page being served by Apps Script, or by GitHub? */
+  var ON_GITHUB = !(window.google && window.google.script && window.google.script.run);
+
+  /* The browser only offers "Install" once a service worker is registered.
+     Apps Script serves this page inside its own frame, where service workers
+     are not allowed, so we only do it on GitHub. */
+  if (ON_GITHUB && 'serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(){ /* no install button, app still works */ });
+    });
+  }
+
+  /* Inside Apps Script doGet() fills the block above with the startup details.
+     On GitHub that block is still the raw tag, which is not valid JSON — so
+     this comes back null and we know to ask the Apps Script app for it. */
+  var BOOT = (function(){
+    try { return JSON.parse(document.getElementById('bootData').textContent); }
+    catch(e){ return null; }
+  })();
+
+  /* ---------- what this device remembers ----------
+     localStorage, not sessionStorage: it survives closing the tab, the browser
+     and the phone, so the passcode and the address are asked for once and then
+     never again on this device. */
+  function lsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } }
+  function lsSet(k,v){ try{ if(v) localStorage.setItem(k,v); else localStorage.removeItem(k); }catch(e){} }
+
+  /* Both apps sit on the same web address, so they share one browser drawer.
+     Without a name of its own, the Approver would pick up the Requester's
+     address and quietly talk to the wrong app. */
+  function K(what){ return 'ris_' + (SITE.key||'app') + '_' + what; }
+
+  /* A harmless random name for this browser. The app counts wrong passcodes
+     per device instead of one shared tally, so a colleague fumbling theirs
+     cannot lock you out. */
+  var DEVICE = (function(){
+    var d=lsGet(K('dev'));
+    if(!d){ d='d'+Math.random().toString(36).slice(2)+Date.now().toString(36); lsSet(K('dev'), d); }
+    return d;
+  })();
+
+  var PASS = lsGet(K('pass'));
+  function savePass(v){ PASS=v||''; lsSet(K('pass'), PASS); }
+  function forgetPass(){ savePass(''); }
+
+  /* The address of the Apps Script app. Typed in once on this device; the
+     built-in SITE.api is only a fallback for people who prefer to edit the file. */
+  function apiUrl(){ return lsGet(K('api')) || SITE.api || ''; }
+  function setApiUrl(u){ lsSet(K('api'), (u||'').trim().replace(/\/+$/,'')); }
+
+  /* ---------- talking to the Apps Script app ---------- */
+  function apiCall(fn, args, ok, bad){
+    var URL_ = apiUrl();
+    if(!URL_){
+      bad && bad(new Error('This page is not connected to the app yet.'));
+      return;
+    }
+    fetch(URL_, {
+      method:'POST', mode:'cors', redirect:'follow',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },   // plain text on purpose: the browser then asks no permission first
+      body: JSON.stringify({ fn:fn, args:Array.prototype.slice.call(args||[]), pass:PASS, dev:DEVICE })
+    })
+    .then(function(r){ return r.text(); })
+    .then(function(t){
+      var j=null; try{ j=JSON.parse(t); }catch(pe){}
+      if(!j){ bad && bad(new Error('The app did not answer properly. Check that it is deployed with access set to Anyone.')); return; }
+      if(j.ok){ ok && ok(j.result); return; }
+      if(j.reason==='pass' || j.reason==='locked' || j.reason==='setup'){
+        forgetPass();
+        askConnect(j.error, function(){ apiCall(fn,args,ok,bad); });       // ask again, then carry on where we left off
+        return;
+      }
+      bad && bad(new Error(j.error || 'Something went wrong.'));
+    })
+    ['catch'](function(e){ bad && bad(new Error('Could not reach the app. Check your internet, or that the app is deployed with access set to Anyone.')); });
+  }
+
+  /* A stand-in for google.script.run, with exactly the same shape, so none of
+     the code below had to change. */
+  function makeRunner(ok, bad){
+    return new Proxy({}, { get:function(t, k){
+      if(k==='withSuccessHandler') return function(fn){ return makeRunner(fn, bad); };
+      if(k==='withFailureHandler') return function(fn){ return makeRunner(ok, fn); };
+      if(k==='withUserObject')     return function(){ return makeRunner(ok, bad); };
+      return function(){ apiCall(k, arguments, ok, bad); };
+    }});
+  }
+
+  /* ---------- the passcode screen ---------- */
+  /* The seal, carried inside the page. The lock screen appears before the server
+     has told us anything, so it cannot wait for a picture to be sent. */
+  var GATE_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJAAAACQCAMAAADQmBKKAAAAwFBMVEUCAloAAADtNAT9/f4CAmEAAFWVlboAAHgAAD4BAVyJirMWF2moqMYpKXQBAVvm5u+6utIAAFvGxdpHR4gCAlsrCUsBAVwBAVtXV5NkZJvZMA0yMnrX1+U5OoB2eKjJLRKyKBtuGDOUISVsbKEAAP+HHCdaEzlIEEKjJSEwATtPCTJ6grTOzuA5RI2dncAAAGAaJHjBvtMdLICPGR4eAD4BAWACAmBAD0RbYZ1gX5iBf6rg3ugAAAAAAAAAAAAAAAAtfr2LAAAAQHRSTlP+AP///gj/BATQ//7//lD//y7//m3/rpD+///+//////////8B/////////////zH//////4/X//////8AAAAAl5tApAAADeNJREFUeNq9XId2q7oSFY5kIWMTY7Cxg1v6SXLKba///389NUBlRHGcO2etsxwb0EaasjUaCUXjhRJK1CeSFSVDJKLy64ggVhYZ1b/RmF7wcBRdKAoLwhjhNJL4SJRi8beJ6m8BRLO02DDetGicCy6jWHwfR6X+QvzCNkX6i/4NgGiUtVhU+6z+jRnfiotQFtEvB/TENcUVwr+VKgT+8DWAjDelzGlWKZFUIVsYBR9wDUBxREgEjkyjRI0KmWNZdxCJlZ5dCRDHkjGmIZFo4zcMA91E+hbCWBZF5EqAuNMhJddR15hMXaFxTD0Vsu8o+WPoNQDxZ6by3bW/iaMC+0rExVMhXEhAWrkwS6MB44b6lTlrhohSCiovLjMuJQaVnTZdhzcDxg31dk+BcKsTsXJEntieqRbphuJW5zAqehGhXmXGzhhQ4vubgBCuNPYI417l7u4hoczOO4unWX2TVPl2u3t83G23eZWYlzP5TnZ/YqHclwIiKQMMnKQb/dciP85XtzeW3K7mx3yhL9ikFHAGLI0vAgRYk1DfgkltSbbT1U1QVtNtIjWLFSXwkKLD2lBnFIW0V3TN41J3zH45PW7zQ7XgUh3y7XG63GtQy8dFfT2o7OOHjAAeUDSxXarBWc6asbFkkc803uUWfEDZpdbdVuY/LTnKHthP86TLvpJ8qq6bAZfRS5Xa16LFVLz67TQfYvS5vngxQoNgQDVj5k7WYhrJTCrsLhnqh5KdVHy7lxitewgMbQiiYLXO2V10FC+8zNEoyYXC3R6hDqIRRN8QoMtpWntTGjde5LC6AE4DaXVovJCei/AG0hTQbgRy5g0xJhJSxGjtt+gi2Qr9npkBVzyZlCDn9gARyjsFI91JOjJW39tHXiLidb5XTXyW3cMbwYySPkA1/VKdxP8JQDvR6RX6hFRiwHfOY1sKFwbUjpHspIgIHZp+rnvaTpoKHRJ9ktYxm49g3AXIChf8bQSehCvlbY4+LTk30lUiEBGTlLtqZAOSCIy4zF9ksZfPuYIkfNj2C/5Iuw1CwoA8/o5Rxd9rjq4kc97XlcOwXDVCFh6PLQs8M3Q1mUlEHvOOYUAA3xB4juiKcgQQ2WqEQgokY+m18ShEbrS11AgZHeTSn2R/dTwS0T7xCBL1ARGfsa6uqj+GHq18Tks8QJS6A/bzivbl2NpPd9AaSmLpkJ1E2PlvciVZyShiemAa8EOmElVc+5KvAZRwW6lMFaIhszfViCt0jr5Icq7YpgJFoR7iodVQvRn6MjGf7rA05JCPTHn2w1AFwrjNM5if+9XooGJTd3AViKSxcUIm3Ndi3ilT/PLtQYhq5UH8cb5Hs+67DiJkc8Kmcw8g/WhdJZEU6Ki79HDTKbf4eSJlLQGpz2e06r5rpwftUZKjtmVi99BTLNk3JZk0A6V0PYBW+MEEdNKA5t13bbXRCCPOiGo0dvxQluqpQCxTmrP6rj5A6JsJ6E5+PgmP2g9oKwaBU2wa68Tor6wFJJw0K1O5QJHJAdYa3Qvo7AO6k5S3b8ikXi9EpOeKm6UlE+5aA1K0Q69PiITitHFByaxT/gMDymezKSzyrkXjjKYi7ajXTWoagqz5qUr98AnhUIdy8gFNht7LuXpiJmzUnBb5mfDZCB8NAVr3eC7DX8/8PLvQIWrfcGv6xOrnNCy5jaH+o+q45Wduesdb7OVpkJd33tqxeN+hnkftemxAb3mXSicWn9h6eW3kTTWWdpRPbrsMGATUZZsH+9FLbwKC3EWThZxg2rwoJPkaAvT+W/gOO2BPVYCyFnGQO9d49FQ67HgPbxCgl6TDcbk05NGdf3BAhTNiey+LGRL8CgG6x6HrK5cK7J0xKzggx+gTd8Q6LfgFBjT4AVNLyaXhIyfVugWc0GK+hCUBAT3jwPXzCqCOW2eRFongZWH2mfQxpBL4HgL0gEKGOQfYtTUeOOOAbBXaA2FjMQ3xs2cI0LcgQ6uA8LF3lAgR1+hHUOmaDtmAzngUubYNnyC5nGoOqh/HQjF/h0BAJ7QN3LCA5h+5uY5SEqTWm2pMRxtxNyta1uzDBhQmRH4Wd9FkDziCTUpULOOYCo1p7nsh0UWwYBjQCeHADcCj91LTBZpCApGhQ9LrrGAyAC/RCDnBPTRCltJ7syKrcSDN8EXk3wjqAbjFPEAAtzUEG9AEHaahGwDXyCnIRi4aPDnZjzhiwk/7CaFtOFIGAG2HxVattAliUQxmP2SGYQtRTVgea/bhAFoHCdGt9/CdzDu4c3s+L+KTERKwej3vu82rlf3h3wFAmhDtD5Vid/v6BpchNnbPG+cI1KwjbhbHMjk6hxCgqbxb8kRhrSY/cwC91z/rGx4bUuUDOsjrMtJU0SBdw1VumFKXqgNQVTekGM+PdQCQYmhVCzwMSCsJY2WRSlhIIqmzFjvIL7aADjaghp85gO6Tmq0u6plhENBCM3iFgG1KeyH7cRSg394DgPDtGECP9iI8c/jrCEANHXIAPV8MSMBhjhGOAXQPA3rA+9FD1q73WAS2R6ltQKsm2DuAziq6DgLkeD68QaUD6DAU0P9+a6zeATRZi5WoYYAODqASWYSxyzE6gH5PmljvAbpDeG6YfRcgp0Vc2IDA0AEC+i9anyYhQJO7NYeQDwG0s5WEA0qRPQk6DgK0QPeTSRgQN30+mxsC6GhPhDiczMl8TIcAwnUuLwhocl6jIYCmzneZDQgkaD4g/Gq1DQKSE8aqF9DSmV5niDjz+H0foHnSmnsnID4fwrM+QHtnskZQzJwhXXQD2lna3AlocvcqF8c7guvCUVrGoz3rs3sT0O+ONncDErPYZN7VQ67VM07QNn0TRYN+8N/OkzGAhAN47Oghd6K44YCkq8b1wgkwlW4BIfQymYwDJBwACgOSU+mmcZFDE3N7JmWz2TAMJRsaQK6xt2JPihw5r7GgERAgmWzAsmkpYm4fEdrUzGQYSsdoJl2h17sAnpPq73PgZ+El9yAgmY7BWb0UJZAYi8CcZYMJq1XI2FvVVbU398ELuAOYQoBUwkqsvUDTIJVB91N6q5CxN/Iv1c46fIV2AC4gobFNXToEKMVA0nMVMnZ7xLrGrHYADiCZ9MRpABCRxcF+WhitQsZey0u9xLnuukowgD0G0sIlMSuakVG7qEq5l66dJSFjdzqop4uEbieujS1RXfZNbUBN4b23tNBh7LUTal973X3lGbmlClvtoNtyfdQU3jdlYdbiix/Zvfc266Veu69tRtdZfMFIlOtTYxG4MLCby1MYPfc08WC9NL7vufxbYHmKj1uzCEyj9J9O7rwOH7jL2PUoBPKgYQeA7QW8NrCm/opio/y6i/re11DoRs599zyrTspdc25WFMV6kEtSVrJ7ep9tKrSX5wu/hbxr5VIv9lTrkFcMJ5fJ8UsvnMkrgAev+++718vkQHEcAuqmZSEBfh7wXDBF3mtqcvq/d90dI62VeV3E48fHe+9THwIp+15Tm0zePtylsrp6EGk/7Wxi+35z88efIw1shKk9/6GKUfwO0oA8Q5PlOqexBjbU1E5NuY5jYkYsc7uI6/XH22gDG2hqf3141J0RN5YVHlW5+fE+0sAGmtr7jxuXdLWV+nUPPZmGJhi3LIr7c6SBDTK1Z1UUZxVjMfrk0A+zAAQxEfl3RvULYLa9a2n3QVuQZYM8UjCEvQ4yCRrTcEoeeDMVQeYBXTgPWd17Dij0XMUM0Uq9W4z5BE11kdjuRJpK+JW5nDHYwLpN7U6XnmriSuRmLHMzjFGcSzjfFktoYpVI1l+o4tzgvHD46pWJRxXnqrJuQVNJymcWhILVwqksd3qKmu0Tqnz5bpzBd5naXV2+rLdTRE/i/18pVC2sbI3YtfCqwPvUwfpGITq1Bd5t5Tt5CtYxNsWDbWxTJfDnMQYfNrWzWQJvVL4T0rN7ytzoqDYJGAbzbQQe29Se9SaBtvKEDN7OZeSM1DaK95EGBpjau95GYazRD9zOFTvlKWKjyQ9Nru/QaDlplviD9/XSKT2Jh23nKv2UwM2H4tdrPBrQ+k5SxI8bb0oMblZEwPYyKLt9s6reTiMMzDK181u9WQkhr+isv4eAh8rnfaC3C/DIOsGPejuXK0M2vNEiUDVylQ1vthSUDrGyFLr3SlsCLUmHWRmFEOHPbprEEB460A/VhfCt8sk69M9sK8Uss40ldCgIgnfcWtvsRdfGhaq1unTjbUFsVQCK37t2AseR6ax51OERUIWTC7cmZzxuxwYiUfwej9maTIx9MHKo47imuJds3sZFHJvKaRXjD9srTRtESvWouSay2Jnb23ft9vadt729WcOgikXooBEHN7ijjuMsZAip8Tj+ctABAJYHbBHxkBHecI+6Ttgoxd7SOHg8Qe8RCf68SyCytpONO7MhKmoW5Z/P0jQVPkTCqyZXiIrOg21QzykktCPCMfAABLHZoCNq0Z6DdnqO2aDB/Z2i6OdXCsQ9UXbjn/bQMlZ6+TEbziqI0wKDT9SBv3ZXND59/hABX5ka+/EbQOJbqEOH4RkGCGhAbcKm/llEG6kihOHgmF2lh7LSUWBlxwQCRHwvwe/9R3blQ7VourEoAIUPR6ongNQK7HKKfl1Asewm1my2U46OQoCo5UgxZmUWDTwvatSxY8IFtIXFJJB4axIZpCkBpr2mfuk5aDRWCRTzPKsQIDGY3EPK5M6oM/VGHsymCovLmu355lcbk2CdZepO3L/kpLjYUAgCAWp/HNk5F582aG6x7AA0unOk/B+W4v9wJheARwAAAABJRU5ErkJggg==';
+
+  /* ---------- the Connect screen: asked ONCE on each device ----------
+     Badyet-style. You paste the Apps Script address and the passcode one
+     time; both are kept in this browser and never asked for again. Only a
+     wrong passcode, or the app moving, brings this back. */
+  function askConnect(note, done){
+    var old=document.getElementById('gateWrap'); if(old) old.remove();
+    var needUrl  = ON_GITHUB;                       /* inside Apps Script the address is itself */
+    var needPass = !PUBLIC_NOW;                     /* a driver's tracking link never asks */
+    var w=document.createElement('div'); w.id='gateWrap';
+    w.setAttribute('style','position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;'+
+      'padding:20px;background:var(--bg,#EEF2F8);opacity:0;transition:opacity .35s ease;overflow-y:auto');
+    var FLD='width:100%;padding:13px 14px;font-size:1rem;border:1px solid var(--line-2,#D3DAE5);'+
+            'border-radius:var(--r-sm,10px);background:var(--card,#fff);color:var(--ink,#1d1d1f);outline:none';
+    w.innerHTML =
+      '<div style="width:100%;max-width:430px;background:var(--card,#fff);border:1px solid var(--line,#E5E7EC);'+
+        'border-radius:var(--r,16px);box-shadow:0 12px 32px rgba(6,30,69,.18);padding:26px 24px;text-align:center">'+
+        '<div style="width:66px;height:66px;margin:0 auto 14px"><img id="gateLogo" alt="" src="'+GATE_LOGO+'" style="width:100%;height:100%;object-fit:contain;border:0;display:block"></div>'+
+        '<h2 style="margin:0 0 2px;font:700 1.35rem/1.15 var(--cond,sans-serif);text-transform:uppercase;letter-spacing:.02em;color:var(--head,#08295F)">Bureau of Equipment</h2>'+
+        '<p style="margin:0 0 16px;font:600 .95rem var(--body,sans-serif);color:var(--orange,#F26522)">Approver Portal</p>'+
+        '<div id="gateErr" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:10px;background:var(--warn-soft,#FFF1D6);'+
+          'color:var(--warn,#8F5400);border-left:4px solid var(--orange,#FF7A33);font-size:.86rem;text-align:left"></div>'+
+        (needUrl ?
+          '<label style="display:block;text-align:left;margin:0 0 5px;font-size:.8rem;font-weight:600;color:var(--muted,#626a78)">Apps Script web app address</label>'+
+          '<input id="gateUrl" type="url" spellcheck="false" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec" style="'+FLD+';font-size:.86rem">'+
+          '<button id="gateTest" style="margin:8px 0 14px;padding:9px 14px;border:1px solid var(--line-2,#D3DAE5);border-radius:9px;'+
+            'background:var(--card,#fff);color:var(--navy,#08295F);font:600 .84rem var(--body,sans-serif);cursor:pointer">Test my link</button>'
+          : '')+
+        (needPass ?
+          '<label style="display:block;text-align:left;margin:0 0 5px;font-size:.8rem;font-weight:600;color:var(--muted,#626a78)">Office passcode</label>'+
+          '<input id="gateIn" type="password" autocomplete="current-password" placeholder="Passcode" style="'+FLD+';text-align:center;letter-spacing:.08em">'
+          : '')+
+        '<button id="gateGo" style="width:100%;margin-top:14px;padding:14px;border:0;border-radius:var(--r-sm,10px);cursor:pointer;'+
+          'font:600 1rem var(--body,sans-serif);color:#fff;background:var(--grad-o,#F26522);box-shadow:0 8px 20px rgba(242,101,34,.3)">Connect</button>'+
+        '<p style="margin:12px 0 0;font-size:.78rem;color:var(--muted,#626a78)">Asked once on this device. After this it opens straight away.</p>'+
+      '</div>';
+    document.body.appendChild(w);
+    void w.offsetWidth; w.style.opacity='1';
+    try { var L=document.getElementById('gateLogo'); if(L && BOOT && BOOT.assets && BOOT.assets.logo) L.src=BOOT.assets.logo; } catch(e){}
+
+    var errEl=document.getElementById('gateErr');
+    var urlEl=document.getElementById('gateUrl');
+    var inp  =document.getElementById('gateIn');
+    var btn  =document.getElementById('gateGo');
+    var test =document.getElementById('gateTest');
+    if(urlEl) urlEl.value = apiUrl();
+    function say(msg, good){
+      errEl.textContent=msg;
+      errEl.style.background = good ? 'var(--ok-bg,#E6F4EC)' : 'var(--warn-soft,#FFF1D6)';
+      errEl.style.color      = good ? 'var(--ok,#19864F)'    : 'var(--warn,#8F5400)';
+      errEl.style.borderLeftColor = good ? 'var(--ok,#19864F)' : 'var(--orange,#FF7A33)';
+      errEl.style.display='block';
+    }
+    if(note) say(note, false);
+    setTimeout(function(){ (urlEl && !urlEl.value ? urlEl : (inp||urlEl)).focus(); }, 60);
+
+    /* "Test my link" only checks the address. Any proper answer — even
+       "wrong passcode" — proves the address itself is good. */
+    if(test) test.onclick=function(){
+      var u=(urlEl.value||'').trim();
+      if(!u){ say('Paste the address first.', false); urlEl.focus(); return; }
+      test.disabled=true; test.textContent='Testing…';
+      fetch(u, { method:'POST', mode:'cors', redirect:'follow',
+                 headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+                 body: JSON.stringify({ fn:'gateCheck', args:[''], pass:'' }) })
+        .then(function(r){ return r.text(); })
+        .then(function(t){ var j=null; try{ j=JSON.parse(t); }catch(e){}
+          test.disabled=false; test.textContent='Test my link';
+          if(j) say('The link works. Now type the passcode.', true);
+          else  say('That address answered, but not like the app. Check you copied the whole /exec address.', false);
+        })
+        ['catch'](function(){ test.disabled=false; test.textContent='Test my link';
+          say('Could not reach that address. Check it ends in /exec and is deployed with access set to Anyone.', false); });
+    };
+
+    function go(){
+      var u = urlEl ? (urlEl.value||'').trim() : '';
+      var v = inp   ? (inp.value||'').trim()   : '';
+      if(urlEl && !u){ say('Paste your Apps Script address.', false); urlEl.focus(); return; }
+      if(urlEl && !/\/exec\/?$/.test(u)){ say('That address should end in /exec.', false); urlEl.focus(); return; }
+      if(inp && !v){ say('Type the passcode.', false); inp.focus(); return; }
+      btn.disabled=true; btn.textContent='Connecting…';
+      if(urlEl) setApiUrl(u);
+      function refuse(msg){
+        btn.disabled=false; btn.textContent='Connect';
+        say(msg || 'That did not work.', false);
+        if(inp){ inp.value=''; inp.focus(); }
+      }
+      if(!inp){                                   /* address only: nothing to check */
+        savePass(''); w.style.opacity='0';
+        setTimeout(function(){ w.remove(); done && done(); }, 320);
+        return;
+      }
+      PASS=v;
+      google.script.run
+        .withSuccessHandler(function(res){
+          if(!(res && res.ok)){ PASS=''; refuse(res && res.error); return; }
+          savePass(v);                            /* kept on this device from now on */
+          w.style.opacity='0';
+          setTimeout(function(){ w.remove(); done && done(); }, 320);
+        })
+        .withFailureHandler(function(err){ PASS=''; refuse((err && err.message) || 'Could not reach the app.'); })
+        .gateCheck(v, DEVICE);
+    }
+    btn.onclick=go;
+    if(inp)   inp.onkeydown  =function(e){ if(e.key==='Enter') go(); };
+    if(urlEl) urlEl.onkeydown=function(e){ if(e.key==='Enter'){ if(inp) inp.focus(); else go(); } };
+  }
+
+  /* ---------- what the page should show, taken from the address bar ---------- */
+  function urlParams(){
+    var out={}, q=location.search.replace(/^\?/,'');
+    q.split('&').forEach(function(bit){
+      if(!bit) return;
+      var i=bit.indexOf('='), k=i<0?bit:bit.slice(0,i), v=i<0?'':decodeURIComponent(bit.slice(i+1).replace(/\+/g,' '));
+      out[decodeURIComponent(k)]=v;
+    });
+    if(out.v && !out.view) out.view='verify';
+    if(out.page) out.view=out.page;
+    return out;
+  }
+
+  /* ---------- start ---------- */
+  function main(){
+
+  var ASSETS = BOOT.assets || {};
+
+  /* The form picture (and the stored signature images) are a chunk of text that is
+     only needed once a slip preview is actually on screen. Leaving them out of the
+     first load is what makes signing in open straight away; they are fetched in the
+     background the first time a preview is drawn. */
+  var ASSET_WAIT=[], ASSET_ASKING=false, ASSET_TRIES=0;
+  function withAssets(cb){
+    if(ASSETS.bg) return true;              // normal case: the pictures came with the page
+    if(cb) ASSET_WAIT.push(cb);             // safety net only, for a page that arrived without them
+    if(!ASSET_ASKING && ASSET_TRIES<4){
+      ASSET_ASKING=true; ASSET_TRIES++;
+      google.script.run
+        .withSuccessHandler(function(a){
+          ASSET_ASKING=false;
+          if(a) for(var k in a) ASSETS[k]=a[k];
+          var q=ASSET_WAIT; ASSET_WAIT=[];
+          if(gone()) return;                      // signed out while this was on its way
+          if(!ASSETS.bg){ setTimeout(function(){ ASSET_WAIT=q.concat(ASSET_WAIT); withAssets(); }, 1500); return; }
+          q.forEach(function(f){ try{ f(); }catch(e){} });
+        })
+        .withFailureHandler(function(){            // keep the waiting redraws and try again shortly
+          ASSET_ASKING=false;
+          setTimeout(function(){ withAssets(); }, 1500);
+        })
+        .slipAssets();
+    }
+    return false;
+  }
+
+  var $ = function(id){ return document.getElementById(id); };
+  var MID = $('mid'), FTR = $('ftr');
+  /* ===== smooth motion =====
+     1. A page glides in ONCE, when it is really a different page. Redraws of the same page (a refresh,
+        a tab switch) stay silent, so nothing flashes.
+     2. Desktop mouse wheel: each notch eases to its target instead of jumping. Touch and trackpads keep their own smooth scrolling. */
+  (function(){
+    var keys=new WeakMap(), hosts=[];
+    function keyOf(p){ var c=p.firstElementChild; return c ? c.tagName+'.'+c.className+'#'+c.id : '-'; }
+    function scan(){
+      var list=document.querySelectorAll('.pane:not([data-s])');
+      for(var i=0;i<list.length;i++){
+        var p=list[i], h=p.parentNode, k=keyOf(p); p.setAttribute('data-s','1');
+        if(hosts.indexOf(h)<0) hosts.push(h);
+        if(keys.get(h)!==k){ keys.set(h,k); p.classList.add('pane-in'); }
+      }
+      hosts=hosts.filter(function(h){ return document.contains(h); });
+      hosts.forEach(function(h){ if(!h.querySelector('.pane')) keys.delete(h); });   // swapped for a spinner: the next page counts as new
+    }
+    new MutationObserver(scan).observe(document.getElementById('mid'),{childList:true,subtree:true});
+    scan();
+
+    if(window.matchMedia && matchMedia('(pointer:coarse)').matches) return;
+    var el=null, target=0, raf=0;
+    function scroller(n){
+      for(; n && n!==document.body && n!==document.documentElement; n=n.parentNode){
+        if(n.nodeType!==1) continue;
+        var tg=n.tagName; if(tg==='TEXTAREA'||tg==='SELECT'||tg==='INPUT') return null;
+        var oy=getComputedStyle(n).overflowY;
+        if((oy==='auto'||oy==='scroll') && n.scrollHeight>n.clientHeight+1) return n;
+      }
+      return null;
+    }
+    function step(){
+      if(!el){ raf=0; return; }
+      var d=target-el.scrollTop;
+      if(Math.abs(d)<0.6){ el.scrollTop=target; el=null; raf=0; return; }
+      el.scrollTop+=d*0.16; raf=requestAnimationFrame(step);
+    }
+    addEventListener('wheel',function(e){
+      if(e.ctrlKey||e.defaultPrevented||e.deltaX) return;
+      var px=0;
+      if(e.deltaMode===1) px=e.deltaY*40;
+      else if(e.deltaMode===0 && e.wheelDeltaY && Math.abs(e.wheelDeltaY)%120===0) px=e.deltaY;   // a real wheel notch, not a trackpad
+      if(!px) return;
+      var s=scroller(e.target); if(!s) return;
+      var max=s.scrollHeight-s.clientHeight;
+      if((px<0 && s.scrollTop<=0) || (px>0 && s.scrollTop>=max-1)) return;       // at the end: let the parent scroll
+      e.preventDefault();
+      if(el!==s || !raf) target=s.scrollTop;
+      el=s; target=Math.max(0,Math.min(max,target+px));
+      if(!raf) raf=requestAnimationFrame(step);
+    },{passive:false});
+  })();
+  var STATE = { pad:null };
+  if(ASSETS.logo) $('logo').src=ASSETS.logo;
+
+  function each(list, fn){ for(var i=0;i<list.length;i++) fn(list[i], i); }
+  function escq(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                    .replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }   // quotes too: a value like 2" dia used to break the box it sat in
+
+  function renderOverlayHtml(rec, A){
+    function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    function p2(n){return (n<10?'0':'')+n;}
+    function fmtDT(v){ if(!v) return ''; var d=new Date(v); if(isNaN(d.getTime())) return String(v);
+      return p2(d.getMonth()+1)+'/'+p2(d.getDate())+'/'+String(d.getFullYear()).slice(-2)+' '+p2(d.getHours())+':'+p2(d.getMinutes()); }
+    function fmtDate(v){ if(!v) return '';
+      var m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m) return m[2]+'/'+m[3]+'/'+m[1].slice(-2);
+      var d=new Date(v); if(isNaN(d.getTime())) return String(v);
+      return p2(d.getMonth()+1)+'/'+p2(d.getDate())+'/'+String(d.getFullYear()).slice(-2); }
+    var o=[];
+    o.push('<div class="ris-page" style="position:relative;width:210mm;height:297mm;font-family:Tahoma,Verdana,Geneva,sans-serif;color:#111;font-size:8.5pt;overflow:hidden">');
+    o.push('<img src="'+A.bg+'" style="position:absolute;top:0;left:0;width:210mm;height:297mm">');
+    function c(x,y,t,st){o.push('<div style="position:absolute;left:'+x+'%;top:'+y+'%;transform:translate(-50%,-50%);white-space:nowrap;'+(st||'')+'">'+esc(t)+'</div>');}
+    function l(x,y,t,st){o.push('<div style="position:absolute;left:'+x+'%;top:'+y+'%;transform:translateY(-50%);white-space:nowrap;'+(st||'')+'">'+esc(t)+'</div>');}
+    function r(x,y,t,st){o.push('<div style="position:absolute;left:'+x+'%;top:'+y+'%;transform:translate(-100%,-50%);white-space:nowrap;'+(st||'')+'">'+esc(t)+'</div>');}
+    function box(x,y,w,t,st){o.push('<div style="position:absolute;left:'+x+'%;top:'+y+'%;width:'+w+'%;transform:translate(-50%,-50%);text-align:center;line-height:1.1;'+(st||'')+'">'+esc(t)+'</div>');}
+    function im(x,y,src,w){o.push('<img src="'+src+'" style="position:absolute;left:'+x+'%;top:'+y+'%;transform:translate(-50%,-50%);width:'+w+'%;height:auto;mix-blend-mode:multiply">');}
+    var y0=33.1,p=2.225;
+    (rec.items||[]).slice(0,6).forEach(function(it,i){
+      var y=y0+i*p;
+      c(20.06,y,'Liters'); c(33.21,y,it.description||''); c(48.51,y,it.quantity||'');
+      c(58.28,y,'✓'); c(73.06,y,it.quantity||'');
+    });
+    var bu='font-weight:bold;text-decoration:underline';
+    l(31.5,68.4,rec.propertyCode||'',bu); l(31.5,70.0,rec.model||'',bu); l(31.5,71.6,rec.tripTicket||'',bu);
+    l(36.0,74.9,fmtDate(rec.dateFrom)); l(34.5,76.5,fmtDate(rec.dateTo));
+    box(77.5,67.2,26,'Odometer / Hour Meter Reading','font-weight:bold;font-size:7.5pt');
+    [['Present:',rec.odoPresent],['Previous:',rec.odoPrevious],
+     ['Distance Travelled:',rec.odoDistance],['Balance in Tank:',rec.odoBalance]]
+    .forEach(function(row,i){ var y=69.4+i*1.9;
+      r(73.0,y,row[0]); l(74.5,y,row[1]||'','font-weight:bold;text-decoration:underline'); });
+    var X={req:33.2,app:52.5,iss:69.0,rec:84.1}, SY=82.5;
+    if(rec.approvals[0]) im(X.iss,SY,(rec.sigData&&rec.sigData[0])||A.callada,12.5);
+    if(rec.approvals[1]) im(X.req,SY,(rec.sigData&&rec.sigData[1])||A.ranoa,17);
+    if(rec.approvals[2]) im(X.app,SY,(rec.sigData&&rec.sigData[2])||A.ilao,18);
+    /* The requester signs when they submit, so it belongs here from that
+       moment — not only once the slip is finished. */
+    if(rec.senderSignature)
+      o.push('<img src="'+rec.senderSignature+'" style="position:absolute;left:'+X.rec+'%;top:'+SY+'%;transform:translate(-50%,-50%);max-width:13%;max-height:7mm;width:auto;height:auto">');
+    box(X.rec,84.6,15,(rec.senderName||'').toUpperCase(),'font-weight:bold;font-size:8.5pt');
+    box(X.rec,87.8,15,rec.senderPosition||'','font-weight:bold;font-size:8.5pt');
+    var DY=90.0, ds='font-size:7.5pt';
+    if(rec.approvals[1]) c(X.req,DY,fmtDT(rec.approvals[1].signedAt),ds);
+    if(rec.approvals[2]) c(X.app,DY,fmtDT(rec.approvals[2].signedAt),ds);
+    if(rec.approvals[0]) c(X.iss,DY,fmtDT(rec.approvals[0].signedAt),ds);
+    if(rec.status==='completed') c(X.rec,DY,fmtDT(rec.completedAt),ds);
+    if(rec.status==='completed' && rec.qr){
+      o.push('<img src="'+rec.qr+'" style="position:absolute;left:83.71%;top:11.15%;transform:translate(-50%,-50%);width:13.5%;height:auto">');
+      c(83.71,16.9,rec.txn||'','font-size:6pt;letter-spacing:.2px');
+    }
+    o.push('</div>');
+    return o.join('');
+  }
+
+  /* ===== scale the A4 page so the whole thing fits, no scrolling ===== */
+  function fitSlip(){
+    var box=document.querySelector('.slipbox'), wrap=document.querySelector('.slipwrap');
+    if(!box||!wrap) return;
+    var page=box.querySelector('.ris-page'); if(!page) return;
+    page.style.transform='none';
+    var pw=page.offsetWidth, ph=page.offsetHeight;
+    if(!pw||!ph) return;
+    var cw=wrap.clientWidth, ch=wrap.clientHeight;
+    /* The scanned form has a wide white border of its own, so showing the whole
+       A4 sheet wastes about a sixth of the screen. Trim that border off the view
+       and the form itself comes out noticeably bigger. The printed PDF is drawn
+       separately and still gets the full sheet, margins and all. */
+    /* Trim most of the sheet's own white border, but leave an even margin all
+       round so it still reads as a printed page and not a cropped photo. */
+    var M={ l:0.049, r:0.049, t:0.031, b:0.069 };
+    var iw=pw*(1-M.l-M.r), ih=ph*(1-M.t-M.b);
+    var k=Math.min(cw/iw, ch/ih);
+    page.style.transform='translate('+(-pw*M.l*k)+'px,'+(-ph*M.t*k)+'px) scale('+k+')';
+    box.style.width=Math.floor(iw*k)+'px';
+    box.style.height=Math.floor(ih*k)+'px';
+    box.classList.add('fit');
+  }
+  window.addEventListener('resize', fitSlip);
+  window.addEventListener('orientationchange', function(){ setTimeout(fitSlip,250); });
+
+  function slipPane(rec, redraw){
+    if(!withAssets(redraw)) return '<div class="slipwrap"><div class="slipbox"><div class="ris-page" style="position:relative;width:210mm;height:297mm;background:#fff;display:flex;align-items:center;justify-content:center"><div style="text-align:center;color:#626a78;font:600 5mm/1.4 sans-serif">Loading the form…<br><span style="font-size:3.6mm;font-weight:400">If this stays empty, reload the page.</span></div></div></div></div>';
+    return '<div class="slipwrap"><div class="slipbox">'+renderOverlayHtml(rec,ASSETS)+'</div></div>';
+  }
+
+  /* ===== shared bits ===== */
+  function setHeader(title, sub){ var h=$('hTitle'), w=String(title||'').split(' '), last=w.pop(); h.textContent='';
+    if(w.length) h.appendChild(document.createTextNode(w.join(' ')+' '));
+    var em=document.createElement('em'); em.textContent=last; h.appendChild(em); $('hSub').textContent=sub; }
+  function setProgress(n, total, name){
+    if(!total){ $('bar').hidden=true; $('stepName').hidden=true; return; }
+    var h=''; for(var i=0;i<total;i++) h+='<i class="'+(i<=n?'on':'')+'"></i>';
+    $('bar').innerHTML=h; $('bar').hidden=false;
+    $('stepName').textContent='Step '+(n+1)+' of '+total+' · '+name;
+    $('stepName').hidden=false;
+  }
+  function detailRows(pairs){
+    var h='<div class="dl">';
+    pairs.forEach(function(p){ if(p[1]==null||p[1]==='') return;
+      h+='<div class="r"><span>'+escq(p[0])+':</span><span>'+escq(p[1])+'</span></div>'; });
+    return h+'</div>';
+  }
+  function fmtDateUI(v){
+    if(!v) return '';
+    var m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m) return m[2]+'/'+m[3]+'/'+m[1].slice(-2);
+    var d=new Date(v); if(isNaN(d.getTime())) return String(v);
+    return ('0'+(d.getMonth()+1)).slice(-2)+'/'+('0'+d.getDate()).slice(-2)+'/'+String(d.getFullYear()).slice(-2);
+  }
+
+  function initPad(){
+    var cv=$('sig'); if(!cv) return;
+    STATE.pad=makePad(cv);
+    $('clr').onclick=function(){ STATE.pad.clear(); };
+  }
+  function makePad(canvas){
+    var ctx=canvas.getContext('2d'), dpr=window.devicePixelRatio||1;
+    var r=canvas.getBoundingClientRect();
+    canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr));
+    ctx.scale(dpr,dpr); ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0a1a5a';
+    var drawing=false,last=null,drawn=false,bb=null;
+    function pos(e){ var b=canvas.getBoundingClientRect(); return {x:e.clientX-b.left,y:e.clientY-b.top}; }
+    function mark(p){ if(!bb) bb={a:p.x,b:p.y,c:p.x,d:p.y};
+      else { bb.a=Math.min(bb.a,p.x); bb.b=Math.min(bb.b,p.y); bb.c=Math.max(bb.c,p.x); bb.d=Math.max(bb.d,p.y); } }
+    canvas.addEventListener('pointerdown',function(e){ e.preventDefault(); drawing=true; last=pos(e); mark(last);
+      var ph=$('sigPh'); if(ph) ph.style.display='none'; });
+    canvas.addEventListener('pointermove',function(e){ if(!drawing) return; e.preventDefault();
+      var p=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; mark(p); drawn=true; });
+    window.addEventListener('pointerup',function(){ drawing=false; });
+    return {
+      clear:function(){ ctx.clearRect(0,0,canvas.width,canvas.height); drawn=false; bb=null;
+        var ph=$('sigPh'); if(ph) ph.style.display=''; },
+      isEmpty:function(){ return !drawn; },
+      dataURL:function(){
+        if(!drawn) return '';
+        var pd=10, minx=Math.max(0,bb.a-pd), miny=Math.max(0,bb.b-pd), w=(bb.c+pd)-minx, h=(bb.d+pd)-miny;
+        var target=Math.min(180,w), k=target/w;
+        var out=document.createElement('canvas');
+        out.width=Math.max(1,Math.round(w*k)); out.height=Math.max(1,Math.round(h*k));
+        var oc=out.getContext('2d');
+        oc.drawImage(canvas, minx*dpr, miny*dpr, w*dpr, h*dpr, 0,0,out.width,out.height);
+        /* Make the ink one single colour and round off the soft edges. The picture
+           looks the same but saves as a far smaller file, which is what used to make
+           signing and signing in slow. */
+        try {
+          var im=oc.getImageData(0,0,out.width,out.height), d=im.data, a;
+          for(var i=0;i<d.length;i+=4){
+            a=d[i+3];
+            if(a<40){ d[i]=d[i+1]=d[i+2]=d[i+3]=0; continue; }
+            d[i]=10; d[i+1]=26; d[i+2]=90;
+            d[i+3]=Math.min(255, Math.round(a/51)*51);
+          }
+          oc.putImageData(im,0,0);
+        } catch(ce){ /* never block signing over this */ }
+        return out.toDataURL('image/png');
+      }
+    };
+  }
+
+  var tab='doc';
+  function detailsOf(rec){
+    var ap=rec.approvals||[];
+    var who=['Issued by','Requested by','Approved by'];
+    var rows=[['Transaction Code',rec.txn],['RIS No.',rec.risNo],
+      ['Requester',rec.senderName],['Position',rec.senderPosition],
+      ['Property Code',rec.propertyCode],['For use of',rec.model],['Trip Ticket',rec.tripTicket],
+      ['From',fmtDateUI(rec.dateFrom)],['To',fmtDateUI(rec.dateTo)],
+      ['Items',(rec.items||[]).map(function(i){return i.description+' x '+i.quantity;}).join(', ')],
+      ['Present',rec.odoPresent],['Previous',rec.odoPrevious],
+      ['Distance',rec.odoDistance],['Balance in Tank',rec.odoBalance]];
+    who.forEach(function(w,i){ rows.push([w, ap[i]?'Signed':'Pending']); });
+    if(rec.status==='returned'&&rec.returned){ rows.push(['Returned by',rec.returned.by+' ('+rec.returned.column+')']); rows.push(['Remarks',rec.returned.remarks]); }
+    if(rec.flags&&rec.flags.length) rows.push(['Checks',rec.flags.join(' ')]);
+    if(rec.release){
+      rows.push(['Fuel release', rec.release.finalStatus]);
+      if(rec.release.releasedOn) rows.push(['Released On', rec.release.releasedOn]);
+      if(rec.release.receiptOn)  rows.push(['Receipt Confirmed', rec.release.receiptOn]);
+    }
+    return rows;
+  }
+
+  /* =========================================================
+   *  APPROVER PORTAL
+   *  Sign in (name -> position fills itself -> PIN), then
+   *  Waiting for me / My history, and Sign -> Approve on a slip.
+   *
+   *  The PIN is typed once at sign-in and stays usable for 15 minutes
+   *  of activity. After that, or after Lock, it is asked for again.
+   *  It lives in memory only: never saved to the phone, never logged.
+   * ======================================================= */
+  var PIN_TTL = 15*60*1000;
+  var PT = {
+    token:'', me:null, list:null, tab:'wait', poll:null, screen:'', curId:'',
+    openId:(BOOT.data&&BOOT.data.openId)||'',
+    pin:'', pinAt:0,                 // in-memory only
+    qW:'', fW:'all', sW:'age',       // waiting: search / filter / sort
+    qH:'', fH:'all', sH:'new',       // history: search / filter / sort
+    queue:[], qi:-1                  // the slips to step through with ‹ ›
+  };
+  try { PT.token = sessionStorage.getItem('ris_token') || ''; } catch(e){}
+  function saveToken(t){ PT.token=t||''; try{ if(t) sessionStorage.setItem('ris_token',t); else sessionStorage.removeItem('ris_token'); }catch(e){} }
+  /* After sign-out the token is empty. Answers that were still on their way back from the server
+     (list refresh, an opened slip, the form picture) must not repaint the portal over the login page. */
+  function gone(){ return !PT.token; }
+  function stopPortalPoll(){ if(PT.poll){ clearInterval(PT.poll); PT.poll=null; } }
+  function clearPin(){ PT.pin=''; PT.pinAt=0; }
+  function touchPin(p){ if(p) PT.pin=p; PT.pinAt=Date.now(); }
+  function pinFresh(){ return !!PT.pin && (Date.now()-PT.pinAt) < PIN_TTL; }
+  function pinMinsLeft(){ return Math.max(0, Math.ceil((PIN_TTL-(Date.now()-PT.pinAt))/60000)); }
+  /* the server sends the signature picture only at sign-in and on the slip screen,
+     never on the 30-second poll — so keep the one we have when a lighter "me" arrives */
+  function setMe(m){ if(!m) return; if(!m.sig && PT.me && PT.me.sig) m.sig=PT.me.sig; PT.me=m; }
+  function sessionLost(res){
+    if(res && res.reason==='session'){ stopPortalPoll(); saveToken(''); clearPin(); PT.me=null; viewLogin(res.message); return true; }
+    return false;
+  }
+  function failMsg(e){ return (e&&e.message)||'Something went wrong. Please try again.'; }
+  function ago(iso){
+    var t=new Date(iso).getTime(); if(isNaN(t)) return '';
+    var m=Math.max(0,Math.round((Date.now()-t)/60000));
+    if(m<2) return 'just now'; if(m<60) return m+' min'; var h=Math.round(m/60);
+    if(h<24) return h+' hr'; var d=Math.round(h/24); return d+' day'+(d===1?'':'s');
+  }
+  function fmtDateTimeUI(v){
+    var d=new Date(v); if(isNaN(d.getTime())) return '';
+    function p(n){return (n<10?'0':'')+n;}
+    return p(d.getMonth()+1)+'/'+p(d.getDate())+'/'+String(d.getFullYear()).slice(-2)+' '+p(d.getHours())+':'+p(d.getMinutes());
+  }
+  function hrsSince(iso){ return (Date.now()-new Date(iso).getTime())/3600000; }
+
+  /* =========================================================
+   *  PHONE vs DESKTOP
+   *  Phone: one screen at a time, buttons in the bottom bar.
+   *  Desktop (900px+): the list stays on the left, the open slip
+   *  shows on the right, like an email client.
+   * ======================================================= */
+  function isDesk(){ return window.innerWidth >= 900; }
+  function ensureSplit(){
+    if(!isDesk()) return false;
+    if(!$('lp') || !$('dp')){
+      MID.className='mid split';
+      MID.innerHTML='<div class="lp" id="lp"></div><div class="dp" id="dp"><div class="dp-empty"><div class="b">☰</div><h3>Pick a slip</h3><p>Choose one from the list to review it here.</p></div></div>';
+    }
+    FTR.innerHTML=''; FTR.hidden=true;
+    return true;
+  }
+  function listTarget(){ return ensureSplit() ? $('lp') : MID; }
+  function slipTarget(){ return ensureSplit() ? $('dp') : MID; }
+  function footTarget(){
+    if(!isDesk()) { FTR.hidden=false; return FTR; }
+    var dp=$('dp'); if(!dp) return FTR;
+    var f=dp.querySelector('.dpfoot'); if(!f){ f=document.createElement('div'); f.className='dpfoot'; dp.appendChild(f); }
+    return f;
+  }
+  var lastDesk=isDesk();
+  window.addEventListener('resize', function(){
+    var d=isDesk(); if(d===lastDesk) return; lastDesk=d;
+    if(PT.screen==='home' || PT.screen==='slip'){
+      if(!d){ MID.className='mid'; MID.innerHTML=''; FTR.hidden=false; }
+      if(PT.screen==='slip' && PT.curId){ if(d) drawHome(); openSlip(PT.curId); } else drawHome();
+    }
+  });
+
+  function viewPortal(){
+    document.body.classList.add('portal');
+    if(PT.token) loadPortal(true); else viewLogin();
+  }
+
+  /* ---------- sign in ---------- */
+  function viewLogin(note){
+    stopPortalPoll(); clearPin(); try{ scStopLive(); cancelAutoHome(); }catch(e){}
+    PT.screen='login';
+    setHeader('Approver Portal','DPWH · Approvers & fuel attendants');
+    setProgress(0,0,'');
+    var pos=(BOOT.data&&BOOT.data.positions)||[];
+    var accts=(BOOT.data&&BOOT.data.accounts)||[];
+    var userField = accts.length
+      ? '<select id="lgUser"><option value="">Choose your name…</option>'+
+        accts.map(function(a){ return '<option value="'+escq(a.username)+'">'+escq(a.name||a.username)+'</option>'; }).join('')+'</select>'
+      : '<input id="lgUser" type="text" autocapitalize="none" autocomplete="username" placeholder="e.g. callada">';
+    var posField = pos.length
+      ? '<select id="lgPos"><option value="">Choose your position…</option>'+pos.map(function(p){return '<option>'+escq(p)+'</option>';}).join('')+'</select>'
+      : '<input id="lgPos" type="text" autocomplete="off" placeholder="Your position">';
+    MID.className='mid'; FTR.hidden=false;
+    MID.innerHTML='<div class="pane"><div class="loginbox">'+
+      '<div class="lgmark"><img src="'+(ASSETS.logo||'')+'" alt="DPWH"></div>'+
+      '<h2>Welcome</h2><p class="sub">Approvers sign slips here. Fuel attendants scan and release.</p>'+
+      (note?'<div class="msg warn" style="text-align:left">'+escq(note)+'</div>':'')+
+      '<div class="msg err" id="lgErr" hidden style="text-align:left"></div>'+
+      '<div class="f lgf"><label for="lgUser">Your name</label>'+userField+'</div>'+
+      '<div class="f lgf"><label for="lgPos">Position</label>'+posField+
+        '<div class="hint off" id="posHint">Fills in when you choose your name.</div></div>'+
+
+      '<div class="f lgf"><label for="lgPin">PIN</label>'+
+        '<input id="lgPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="••••" class="pininput">'+
+        '<div class="hint off">Typed once. Stays usable for 15 minutes.</div></div>'+
+      '</div></div>';
+    FTR.innerHTML='<button class="btn go" id="lgGo">Sign in</button>';
+    var byUser={}; accts.forEach(function(a){ byUser[a.username]=a; });
+    var uEl=$('lgUser');
+    if(uEl && uEl.tagName==='SELECT'){
+      uEl.onchange=function(){
+        var a=byUser[this.value], h=$('posHint');
+        if(a && a.position){
+          $('lgPos').value=a.position; $('lgPos').classList.add('filled');
+          if(h){ h.textContent='Filled in for '+a.name+(a.role==='attendant'?' — opens the fuel scanner.':' — signs “'+a.column+'”.'); h.className='hint'; }
+          var p=$('lgPin'); if(p) p.focus();
+        } else {
+          $('lgPos').classList.remove('filled');
+          if(h){ h.textContent='Fills in when you choose your name.'; h.className='hint off'; }
+        }
+      };
+    }
+    function go(){
+      var u=$('lgUser').value.trim(), p=$('lgPos').value.trim(), n=$('lgPin').value.trim();
+      var er=$('lgErr'); er.hidden=true;
+      if(!u){ er.textContent='Choose your name from the list.'; er.hidden=false; return; }
+      if(!p){ er.textContent='Choose your position.'; er.hidden=false; return; }
+      if(!n){ er.textContent='Type your PIN.'; er.hidden=false; return; }
+      $('lgGo').disabled=true; $('lgGo').textContent='Signing in…';
+      google.script.run
+        .withSuccessHandler(function(res){
+          if(!res||!res.ok){
+            $('lgGo').disabled=false; $('lgGo').textContent='Sign in'; $('lgPin').value='';
+            er.textContent=(res&&res.message)||'Could not sign in.'; er.hidden=false; return;
+          }
+          saveToken(res.token); setMe(res.me); PT.tab='wait';
+          touchPin(n);
+          if(res.me && res.me.role==='attendant'){ SC.today=[]; viewScanner(); scTryLive(); return; }
+          /* the sign-in answer already carries the lists: draw at once, no second trip */
+          if(res.waiting){ PT.list={ waiting:res.waiting, history:res.history||[], historyTotal:res.historyTotal||0 }; drawHome(); startPortalPoll(); }
+          else loadPortal(true);
+        })
+        .withFailureHandler(function(e){ $('lgGo').disabled=false; $('lgGo').textContent='Sign in'; er.textContent=failMsg(e); er.hidden=false; })
+        .portalLogin(u,p,n);
+    }
+    $('lgGo').onclick=go;
+    $('lgPin').onkeydown=function(e){ if(e.key==='Enter') go(); };
+  }
+
+  /* ---------- the two lists ---------- */
+  function startPortalPoll(){ if(!PT.poll) PT.poll=setInterval(function(){ if(PT.screen==='home'||isDesk()) loadPortal(false); },30000); }
+  function loadPortal(first){
+    if(first){
+      setHeader('Approver Portal','Loading your slips…'); setProgress(0,0,'');
+      var t=listTarget(); t.className=(t===MID?'mid center':'lp center');
+      t.innerHTML='<div class="loading"><span></span><span></span><span></span></div>';
+      if(!isDesk()) FTR.innerHTML='';
+    }
+    google.script.run
+      .withSuccessHandler(function(res){
+        if(gone() || sessionLost(res)) return;
+        if(!res||!res.ok){ var t2=listTarget(); t2.innerHTML='<p class="note">'+escq((res&&res.message)||'Could not load.')+'</p>'; return; }
+        setMe(res.me);
+        var sigL=JSON.stringify([res.waiting,res.history,res.historyTotal])+'|'+Math.floor(Date.now()/600000)+'|'+(pinFresh()?pinMinsLeft():'x');
+        var same=!first && PT.listSig===sigL; PT.listSig=sigL;
+        if(!same) PT.list=res;                                  // unchanged: keep what is on screen, no redraw, no flicker
+        if(res.me && res.me.role==='attendant'){ if(first){ viewScanner(); scTryLive(); } return; }
+        if(first && PT.openId){ var id=PT.openId; PT.openId=''; if(isDesk()) drawHome(); return openSlip(id); }
+        if(!same && (first || PT.screen==='home' || isDesk())) drawHome(true);
+        startPortalPoll();
+      })
+      .withFailureHandler(function(e){ if(gone()) return; if(first){ var t3=listTarget(); t3.innerHTML='<p class="note">'+escq(failMsg(e))+'</p>'; } })
+      .portalList(PT.token);
+  }
+
+  /* search + filter + sort, applied to whichever tab is showing */
+  function visibleList(){
+    var L=PT.list; if(!L) return [];
+    if(PT.tab==='wait'){
+      var q=PT.qW.toLowerCase();
+      var a=L.waiting.filter(function(s){
+        if(q && (s.txn+' '+s.requester+' '+s.vehicle+' '+s.risNo+' '+s.items).toLowerCase().indexOf(q)<0) return false;
+        if(PT.fW==='flag' && !s.flags) return false;
+        if(PT.fW==='old'  && hrsSince(s.since)<24) return false;
+        return true;
+      });
+      return a.sort(function(x,y){
+        if(PT.sW==='age')    return new Date(x.since)-new Date(y.since);
+        if(PT.sW==='new')    return new Date(y.since)-new Date(x.since);
+        if(PT.sW==='liters') return (y.liters||0)-(x.liters||0);
+        return String(x.vehicle||'').localeCompare(String(y.vehicle||''));
+      });
+    }
+    var qh=PT.qH.toLowerCase();
+    var h=L.history.filter(function(s){
+      if(qh && (s.txn+' '+s.requester+' '+s.vehicle+' '+s.risNo).toLowerCase().indexOf(qh)<0) return false;
+      if(PT.fH==='signed'   && s.action!=='signed')   return false;
+      if(PT.fH==='returned' && s.action!=='returned') return false;
+      return true;
+    });
+    return h.sort(function(x,y){
+      if(PT.sH==='old')    return new Date(x.actionAt)-new Date(y.actionAt);
+      if(PT.sH==='liters') return (y.liters||0)-(x.liters||0);
+      return new Date(y.actionAt)-new Date(x.actionAt);
+    });
+  }
+
+  function toast(msg, bad){
+    var old=document.querySelector('.toast'); if(old&&old.parentNode) old.parentNode.removeChild(old);
+    var t=document.createElement('div'); t.className='toast'+(bad?' bad':''); t.textContent=msg;
+    document.body.appendChild(t);
+    void t.offsetWidth; requestAnimationFrame(function(){ t.classList.add('on'); });
+    setTimeout(function(){ t.classList.remove('on'); setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },340); }, bad?4200:2600);
+  }
+
+  /* One sheet for Approve and Return, used from the list AND from the slip screen.
+     The PIN box only appears when the PIN has gone stale or was locked. */
+  function actionSheet(o){
+    var isRet = o.kind==='return';
+    var askPin = !pinFresh();
+    var m=document.createElement('div'); m.className='sheet';
+    m.innerHTML='<div class="sheet-in"><h3>'+(isRet?'Return for correction':'Approve slip '+escq(o.txn))+'</h3>'+
+      '<p>'+(isRet
+          ? 'Tell the requester what to fix.'+(askPin?' Then type your PIN.':'')
+          : (askPin ? 'Type your personal PIN to confirm.' : 'Your signature goes on the slip and it moves on.'))+'</p>'+
+      (isRet?'<textarea id="rmk" rows="3" maxlength="300" placeholder="e.g. Odometer reading is lower than the last trip"></textarea>':'')+
+      (askPin?'<input id="pnPin" class="pininput" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN">':'')+
+      '<div class="msg err" id="pnErr" hidden></div>'+
+      '<div class="sheet-btns"><button class="btn sec" id="pnC">Cancel</button>'+
+      '<button class="btn go" id="pnS">'+(isRet?'Send back':'Confirm & approve')+'</button></div></div>';
+    document.body.appendChild(m);
+    void m.offsetWidth; requestAnimationFrame(function(){ m.classList.add('on'); });
+    setTimeout(function(){ var f=$(isRet?'rmk':'pnPin'); if(f) f.focus(); },300);
+    function close(){ m.classList.remove('on'); setTimeout(function(){ if(m.parentNode) m.parentNode.removeChild(m); },320); }
+    function perr(t){ var e=$('pnErr'); if(e){ e.textContent=t; e.hidden=false; } }
+    $('pnC').onclick=function(){ close(); if(o.onCancel) o.onCancel(); };
+    m.onclick=function(ev){ if(ev.target===m){ close(); if(o.onCancel) o.onCancel(); } };
+    function submit(){
+      var pin = askPin ? ($('pnPin').value||'').trim() : PT.pin;
+      var r   = isRet ? ($('rmk').value||'').trim() : '';
+      if(isRet && r.length<3) return perr('Write what needs to be corrected.');
+      if(!pin) return perr('Type your PIN.');
+      var lbl=$('pnS').textContent; $('pnS').disabled=true; $('pnS').textContent='Please wait…';
+      function back(){ $('pnS').disabled=false; $('pnS').textContent=lbl; }
+      var call = google.script.run
+        .withSuccessHandler(function(res){
+          if(sessionLost(res)){ close(); return; }
+          if(res && res.ok===false){
+            if(res.reason==='pin'){
+              clearPin(); back();
+              if(askPin){ $('pnPin').value=''; $('pnPin').focus(); return perr(res.message||'Wrong PIN.'); }
+              close(); return actionSheet(o);
+            }
+            back(); close();
+            if(o.onHandled) o.onHandled(res); else toast(res.message||'Could not complete.', true);
+            return;
+          }
+          touchPin(pin); close();
+          if(o.onDone) o.onDone(res.record, isRet);
+        })
+        .withFailureHandler(function(e){ back(); perr(failMsg(e)); });
+      if(isRet) call.returnSlip(PT.token, o.id, r, pin); else call.approve(PT.token, o.id, pin);
+    }
+    $('pnS').onclick=submit;
+    if($('pnPin')) $('pnPin').onkeydown=function(e){ if(e.key==='Enter') submit(); };
+  }
+
+  /* Move a slip from Waiting into History in the local copy of the lists. */
+  function moveToHistory(s, wasReturn, record){
+    PT.list.waiting = PT.list.waiting.filter(function(x){ return x.id!==s.id; });
+    var moved = JSON.parse(JSON.stringify(s)); delete moved.err; delete moved.pending;
+    moved.action = wasReturn ? 'returned' : 'signed';
+    moved.actionAt = new Date().toISOString();
+    moved.now = wasReturn ? 'Returned to requester'
+                          : (record && record.status==='completed' ? 'Fully approved' : 'Waiting for the next approver');
+    PT.list.history.unshift(moved); PT.list.historyTotal++;
+    PT.queue = PT.queue.filter(function(q){ return q!==s.id; });
+  }
+  /* The opposite: the server said no, so the slip goes back where it was, with the reason on it. */
+  function putBack(s, idx, why){
+    PT.list.history = PT.list.history.filter(function(x){ return x.id!==s.id; }); PT.list.historyTotal--;
+    s.err = why || 'Could not complete.'; delete s.pending;
+    PT.list.waiting.splice(Math.min(idx, PT.list.waiting.length), 0, s);
+    drawHome(true);
+  }
+
+  /* Approve / Return straight from the card.
+     APPROVE IS INSTANT: the card slides out and the counts move the moment it is
+     tapped. The server is asked afterwards; if it refuses, the card slides back
+     in with the reason written on it. Nothing is ever lost. */
+  function listAction(id, kind){
+    var s=null, idx=-1; (PT.list.waiting||[]).forEach(function(x,i){ if(x.id===id){ s=x; idx=i; } });
+    if(!s) return;
+    delete s.err;
+    function settle(record, wasReturn){
+      moveToHistory(s, wasReturn, record);
+      var card=document.querySelector('[data-card="'+id+'"]');
+      if(card){ card.classList.add('going'); setTimeout(function(){ drawHome(true); },280); } else drawHome(true);
+      toast(wasReturn ? 'Returned — '+s.txn : 'Approved — '+s.txn);
+      if(isDesk() && PT.curId===id){                        // the open slip on the right catches up
+        if(record) openSlip(id); else slipWait();           // approve still in flight: wait, then load the signed copy
+      }
+    }
+    function reopen(){ if(isDesk() && PT.curId===id) openSlip(id); }
+    if(kind==='return' || !pinFresh()){
+      return actionSheet({ kind:kind, id:id, txn:s.txn, onDone:settle,
+        onHandled:function(res){ toast(res.message||'That slip was already handled.', true); loadPortal(false); } });
+    }
+    /* optimistic approve */
+    settle(null, false);
+    s.pending = true;
+    google.script.run
+      .withSuccessHandler(function(res){
+        if(sessionLost(res)) return;
+        if(res && res.ok===false){
+          if(res.reason==='pin'){ clearPin(); putBack(s, idx, ''); delete s.err; return listAction(id,'approve'); }
+          putBack(s, idx, res.message||'That slip was already handled — refresh to see where it is.');
+          toast('Not approved — '+s.txn, true); reopen();
+          return;
+        }
+        touchPin(PT.pin); delete s.pending;
+        // settle the history entry with what the server actually did
+        PT.list.history.forEach(function(h){ if(h.id===id && res.record) h.now = res.record.status==='completed' ? 'Fully approved' : 'Waiting for the next approver'; });
+        if(PT.tab==='hist') drawHome(true);
+        reopen();                                            // now the preview is the signed slip
+      })
+      .withFailureHandler(function(e){ putBack(s, idx, failMsg(e)); toast('Not approved — '+s.txn, true); reopen(); })
+      .approve(PT.token, id, PT.pin);
+  }
+
+  function itemsListHtml(s){
+    var L = s.itemList && s.itemList.length ? s.itemList : [];
+    if(!L.length && s.items) L = String(s.items).split(/,\s*/).map(function(p){ var m=p.match(/^(.*?)\s+([\d.]+)\s*L$/i); return m?{d:m[1],q:m[2]}:{d:p,q:''}; });
+    if(!L.length) return '';
+    return '<ul class="ilist">'+L.map(function(i){ return '<li><span>'+escq(i.d)+'</span><b>'+escq(i.q)+(i.q?' L':'')+'</b></li>'; }).join('')+'</ul>';
+  }
+  function waitCard(s){
+    var h=hrsSince(s.since), late=h>=24, warm=h>=8&&h<24;
+    var rail = s.err ? 'var(--bad)' : s.flags ? 'var(--orange)' : (late ? 'var(--bad)' : 'var(--navy)');
+    var acts = s.flags
+      ? '<div class="cacts"><button class="cbtn open" data-open="'+escq(s.id)+'">Open and review</button></div>'
+      : '<div class="cacts">'+
+          '<button class="cbtn ret" data-ret="'+escq(s.id)+'">Return</button>'+
+          '<button class="cbtn ok" data-ap="'+escq(s.id)+'">Approve</button>'+
+        '</div>';
+    return '<div class="scard'+(PT.curId===s.id&&isDesk()?' open':'')+'" data-card="'+escq(s.id)+'" style="--k:'+rail+'">'+
+      '<button class="cbody" data-open="'+escq(s.id)+'">'+
+        '<div class="r1"><span class="code">'+escq(s.txn)+'</span>'+
+          '<span class="chip2 '+(late?'late':(warm?'warm':''))+'">'+(late?'⚠':'⏱')+' '+escq(ago(s.since))+'</span></div>'+
+        (s.err?'<div class="cerr">✕ '+escq(s.err)+'</div>':'')+
+        '<div class="cgrid">'+
+          '<div class="cleft">'+
+            '<div class="who2"><b>'+escq(s.requester)+'</b><span>'+escq(s.position||'')+'</span></div>'+
+            '<div class="veh"><b>'+escq(s.propertyCode||s.vehicle||'No vehicle')+'</b>'+(s.model?'<span>'+escq(s.model)+'</span>':'')+'</div>'+
+            '<div class="qty"><b>'+s.liters+'</b><span class="u">Litres</span></div>'+
+          '</div>'+
+          itemsListHtml(s)+
+        '</div>'+
+        (s.flags?'<div class="fl">⚠ '+s.flags+' thing'+(s.flags===1?'':'s')+' to check before signing</div>':'')+
+      '</button>'+ acts +'</div>';
+  }
+  function histCard(s){
+    var ret=s.action==='returned';
+    return '<button class="scard hist'+(PT.curId===s.id&&isDesk()?' open':'')+(s.pending?' pend':'')+'" data-id="'+escq(s.id)+'" style="--k:'+(ret?'var(--orange)':'var(--ok)')+'">'+
+      '<div class="r1"><span class="code">'+escq(s.txn)+'</span><span class="pill '+(ret?'p-returned':'p-received')+'">'+(ret?'RETURNED':(s.pending?'SAVING…':'SIGNED'))+'</span></div>'+
+      '<div class="r2">'+escq(s.requester)+'<small> · '+escq(s.vehicle||'')+'</small></div>'+
+      '<div class="r4"><b>'+s.liters+' L</b><span>'+escq(fmtDateTimeUI(s.actionAt))+' · now: '+escq(s.now)+'</span></div>'+
+      (ret&&s.remarks?'<div class="fl">“'+escq(s.remarks)+'”</div>':'')+'</button>';
+  }
+
+  function controlsHtml(){
+    var wait=PT.tab==='wait';
+    var q = wait?PT.qW:PT.qH, f = wait?PT.fW:PT.fH, s = wait?PT.sW:PT.sH;
+    var chips = wait ? [['all','All'],['flag','Needs checking'],['old','Over 1 day']] : [['all','All'],['signed','Signed'],['returned','Returned']];
+    var sorts = wait ? [['age','Longest waiting'],['new','Newest first'],['liters','Most fuel'],['veh','Vehicle']] : [['new','Newest first'],['old','Oldest first'],['liters','Most fuel']];
+    return '<div class="ctrls">'+
+      '<input id="lq" class="hsearch" type="search" placeholder="Search code, requester, vehicle…" value="'+escq(q)+'">'+
+      '<div class="ctrlrow"><div class="chips">'+chips.map(function(c){ return '<button class="chip'+(f===c[0]?' on':'')+'" data-f="'+c[0]+'">'+escq(c[1])+'</button>'; }).join('')+'</div>'+
+        '<label class="sortwrap"><span>Sort</span><select id="lsort">'+sorts.map(function(o){ return '<option value="'+o[0]+'"'+(s===o[0]?' selected':'')+'>'+escq(o[1])+'</option>'; }).join('')+'</select></label>'+
+      '</div></div>';
+  }
+
+  /* keepScroll=true: a refresh or an instant approve — don't jump the list back to the top */
+  function drawHome(keepScroll){
+    if(gone()) return;
+    PT.screen = isDesk() && PT.curId ? PT.screen : 'home';
+    if(!isDesk()){ PT.screen='home'; PT.curId=''; }
+    var L=PT.list, me=PT.me, wait=PT.tab==='wait';
+    var T=listTarget();
+    var y = keepScroll ? (T===MID ? (MID.querySelector('.pane')||{}).scrollTop : T.scrollTop) || 0 : 0;
+    setHeader('Approver Portal', me.column+' · '+me.designation); setProgress(0,0,'');
+    var rows=visibleList();
+    var total = wait ? L.waiting.length : L.historyTotal;
+    var filtered = rows.length!==total;
+    var empty = wait
+      ? (total===0 ? '<div class="allclear"><div class="b">✓</div><h3>All clear</h3><p>No slips are waiting for your signature right now.</p></div>'
+                   : '<div class="empty">No slips match. <button class="linkb" id="clr1">Clear the filters</button></div>')
+      : (total===0 ? '<div class="empty">Slips you sign or return will be listed here.</div>'
+                   : '<div class="empty">Nothing matches. <button class="linkb" id="clr1">Clear the filters</button></div>');
+    var inner =
+      '<div class="hello">'+
+        '<div class="who"><small>Signed in as</small><b>'+escq(me.name)+'</b><span>'+escq(me.designation)+' · signs “'+escq(me.column)+'”</span></div>'+
+        '<div class="hbtns">'+
+          (pinFresh()?'<button id="hLock" class="lockb" title="Ask for my PIN again">🔓 PIN · '+pinMinsLeft()+'m</button>':'')+
+          '<button id="hRef" title="Refresh">↻</button><button id="hAcc">My account</button><button id="hOut">Sign out</button>'+
+        '</div></div>'+
+      '<div class="tabs">'+
+        '<button id="tW" class="'+(wait?'on':'')+'">Waiting for me <span class="cnt">'+L.waiting.length+'</span></button>'+
+        '<button id="tH" class="'+(!wait?'on':'')+'">My history <span class="cnt">'+L.historyTotal+'</span></button>'+
+      '</div>'+
+      ((total>0)?controlsHtml():'')+
+      (filtered&&rows.length?'<p class="shown">Showing '+rows.length+' of '+total+'</p>':'')+
+      (rows.length ? rows.map(wait?waitCard:histCard).join('') : empty);
+    if(T===MID){ MID.className='mid'; MID.innerHTML='<div class="pane">'+inner+'</div>'; FTR.hidden=false; FTR.innerHTML=''; }
+    else { T.className='lp'; T.innerHTML='<div class="pane">'+inner+'</div>'; }
+    var sc = T===MID ? MID.querySelector('.pane') : T.querySelector('.pane'); if(sc && y) sc.scrollTop=y;
+
+    $('tW').onclick=function(){ PT.tab='wait'; drawHome(); };
+    $('tH').onclick=function(){ PT.tab='hist'; drawHome(); };
+    $('hRef').onclick=function(){ loadPortal(false); };
+    $('hOut').onclick=function(){ var tk=PT.token; saveToken(''); stopPortalPoll(); google.script.run.portalLogout(tk); clearPin(); PT.me=null; PT.curId=''; PT.list=null; PT.listSig=''; PT.queue=[]; PT.qi=-1; viewLogin(); };
+    $('hAcc').onclick=function(){ viewAccount(); };
+    if($('hLock')) $('hLock').onclick=function(){ clearPin(); drawHome(true); };
+    if($('clr1')) $('clr1').onclick=function(){ if(PT.tab==='wait'){ PT.qW=''; PT.fW='all'; } else { PT.qH=''; PT.fH='all'; } drawHome(); };
+    var box=$('lq');
+    if(box) box.oninput=function(){
+      var caret=this.selectionStart;
+      if(PT.tab==='wait') PT.qW=this.value; else PT.qH=this.value;
+      drawHome(true);
+      var n=$('lq'); if(n){ n.focus(); try{ n.setSelectionRange(caret,caret); }catch(e){} }
+    };
+    if($('lsort')) $('lsort').onchange=function(){ if(PT.tab==='wait') PT.sW=this.value; else PT.sH=this.value; drawHome(true); };
+    each(T.querySelectorAll('.chip'), function(c){ c.onclick=function(){ if(PT.tab==='wait') PT.fW=c.getAttribute('data-f'); else PT.fH=c.getAttribute('data-f'); drawHome(true); }; });
+    if(PT.tab==='wait') PT.queue=rows.map(function(s){ return s.id; });
+    each(T.querySelectorAll('[data-open]'), function(b){ b.onclick=function(){ openSlip(b.getAttribute('data-open')); }; });
+    each(T.querySelectorAll('[data-ap]'),   function(b){ b.onclick=function(ev){ ev.stopPropagation(); listAction(b.getAttribute('data-ap'),'approve'); }; });
+    each(T.querySelectorAll('[data-ret]'),  function(b){ b.onclick=function(ev){ ev.stopPropagation(); listAction(b.getAttribute('data-ret'),'return'); }; });
+    each(T.querySelectorAll('.scard.hist'), function(b){ b.onclick=function(){ openSlip(b.getAttribute('data-id')); }; });
+  }
+
+  /* ---------- one slip ---------- */
+  function slipWait(){ var T=slipTarget(); if(T!==MID) T.innerHTML='<div class="dp-wait"><div class="loading"><span></span><span></span><span></span></div></div>'; }
+  function openSlip(id){
+    PT.screen='slip'; PT.curId=id;
+    PT.qi=PT.queue.indexOf(id);
+    if(!isDesk()) stopPortalPoll();
+    else each(document.querySelectorAll('.scard'), function(c){ c.classList.toggle('open', (c.getAttribute('data-card')||c.getAttribute('data-id'))===id); });
+    setHeader('Review & Sign','Loading…'); setProgress(0,0,'');
+    var T=slipTarget();
+    if(T===MID){ MID.className='mid center'; MID.innerHTML='<div class="loading"><span></span><span></span><span></span></div>'; FTR.innerHTML=''; }
+    else { T.innerHTML='<div class="dp-wait"><div class="loading"><span></span><span></span><span></span></div></div>'; }
+    google.script.run
+      .withSuccessHandler(function(res){
+        if(gone() || sessionLost(res)) return;
+        if(PT.curId!==id) return;                           // they clicked something else meanwhile
+        if(!res||!res.ok){
+          var T2=slipTarget();
+          T2.innerHTML='<div class="pane"><div style="padding:20px;text-align:center"><p class="note">'+escq((res&&res.message)||'Could not open this slip.')+'</p></div></div>';
+          if(T2===MID){ MID.className='mid'; FTR.innerHTML='<button class="btn" id="bk">Back to my list</button>'; $('bk').onclick=function(){ PT.curId=''; loadPortal(true); }; }
+          return;
+        }
+        setMe(res.me); drawSlip(res.record);
+      })
+      .withFailureHandler(function(e){
+        if(gone()) return;
+        var T3=slipTarget(); T3.innerHTML='<div class="pane"><p class="note">'+escq(failMsg(e))+'</p></div>';
+        if(T3===MID){ MID.className='mid'; FTR.innerHTML='<button class="btn" id="bk">Back to my list</button>'; $('bk').onclick=function(){ PT.curId=''; loadPortal(true); }; }
+      })
+      .portalSlip(PT.token, id);
+  }
+  function previewWithMySig(rec){
+    var c=JSON.parse(JSON.stringify(rec)), i=PT.me.step-1;
+    c.approvals[i]={ signedAt:new Date().toISOString() };
+    c.sigData=(c.sigData||['','','']).slice(); c.sigData[i]=PT.me.sig;
+    return c;
+  }
+  function backToList(){ PT.curId=''; if(isDesk()){ ensureSplit(); $('dp').innerHTML='<div class="dp-empty"><div class="b">☰</div><h3>Pick a slip</h3><p>Choose one from the list to review it here.</p></div>'; drawHome(true); } else loadPortal(true); }
+
+  function drawSlip(rec){
+    if(gone()) return;
+    var me=PT.me, step=me.step, mine=rec.approvals[step-1];
+    var signed=false, done=null, err=null;
+    setHeader('Review & Sign', me.column+' · '+me.name);
+    function navHtml(){
+      if(PT.queue.length<2 || PT.qi<0) return '';
+      return '<div class="slipnav"><button id="npPrev" '+(PT.qi<=0?'disabled':'')+' title="Previous slip">‹</button>'+
+        '<span>Slip '+(PT.qi+1)+' of '+PT.queue.length+'</span>'+
+        '<button id="npNext" '+(PT.qi>=PT.queue.length-1?'disabled':'')+' title="Next slip">›</button></div>';
+    }
+    function status(){
+      if(err)  return '<div class="msg err">'+escq(err)+'</div>';
+      if(done) return '<div class="msg ok">'+escq(done)+'</div>';
+      if(rec.status==='returned') return '<div class="msg warn">Returned to the requester'+(rec.returned?': “'+escq(rec.returned.remarks)+'”':'')+'</div>';
+      if(mine) return '<div class="msg ok">You signed this on '+escq(fmtDateTimeUI(mine.signedAt))+'.</div>';
+      if(!rec.canAct) return '<div class="msg ok">This step is already handled.</div>';
+      return '';
+    }
+    var GLIDE=false, GLIDE_AT=0;     /* set just before a repaint that should glide up */
+    function draw(){
+      var shown = (signed||done) ? previewWithMySig(rec) : rec;
+      if(done && rec.approvals[step-1]) shown=rec;
+      var T=slipTarget();
+      var html='<div class="pane" style="overflow:hidden">'+
+        '<div class="sliptop">'+(isDesk()?'<span></span>':'<button class="back" id="bkTop">‹ Back to my list</button>')+navHtml()+'</div>'+
+        status()+
+        ((rec.flags&&rec.flags.length&&rec.canAct&&!done)?'<div class="msg warn"><b>Check before signing:</b> '+rec.flags.map(escq).join(' ')+'</div>':'')+
+        (signed&&!done?'<div class="msg ok sigok">Your signature is placed. Tap <b>Approve</b> to confirm.</div>':'')+
+        '<div class="tabs"><button id="tDoc" class="'+(tab==='doc'?'on':'')+'">Document</button><button id="tDet" class="'+(tab==='det'?'on':'')+'">Details</button></div>'+
+        (tab==='doc' ? slipPane(shown, function(){ if(PT.screen!=='slip' || PT.curId!==rec.id) return; draw(); }) : detailRows(detailsOf(shown)))+'</div>';
+      if(T===MID){ MID.className='mid'; MID.innerHTML=html; }
+      else { var old=T.querySelector('.dpfoot'); T.innerHTML=html; }
+      /* The server's answer often lands while the first glide is still running.
+         Gliding again would stutter, so one glide per approval is enough. */
+      if(GLIDE){
+        GLIDE=false;
+        if(Date.now()-GLIDE_AT > 2500){        /* a real reply takes 1-3s; 700ms let the second one through */
+          GLIDE_AT=Date.now();
+          var pane=T.querySelector('.pane');
+          if(pane){ pane.classList.remove('glideUp'); void pane.offsetWidth; pane.classList.add('glideUp'); }
+        }
+      }
+      $('tDoc').onclick=function(){ tab='doc'; draw(); };
+      $('tDet').onclick=function(){ tab='det'; draw(); };
+      if($('bkTop')) $('bkTop').onclick=backToList;
+      if($('npPrev')) $('npPrev').onclick=function(){ if(PT.qi>0) openSlip(PT.queue[PT.qi-1]); };
+      if($('npNext')) $('npNext').onclick=function(){ if(PT.qi<PT.queue.length-1) openSlip(PT.queue[PT.qi+1]); };
+      if(tab==='doc') fitSlip(); requestAnimationFrame(fitSlip);
+      foot();
+    }
+    function foot(){
+      var F=footTarget();
+      if(done || !rec.canAct){
+        var nextId = PT.queue[PT.qi] || (isDesk() ? PT.queue[0] : '');
+        if(nextId===rec.id) nextId='';
+        if(isDesk()){                                         // the list is beside the slip, so only "Next slip" makes sense
+          F.innerHTML = nextId ? '<button class="btn go" id="nx">Next slip →</button>' : '';
+        } else {
+          F.innerHTML = nextId
+            ? '<button class="btn sec" id="bk">My list</button><button class="btn go" id="nx">Next slip →</button>'
+            : '<button class="btn" id="bk">Back to my list</button>';
+          $('bk').onclick=backToList;
+        }
+        if($('nx')) $('nx').onclick=function(){ openSlip(nextId); };
+        return;
+      }
+      if(!signed){
+        F.innerHTML='<button class="btn ret" id="ret">Return</button><button class="btn go" id="sg">✍ Sign</button>';
+        $('ret').onclick=function(){ actSheet('return'); };
+        $('sg').onclick=function(){
+          if(!me.sig){ return viewAccount('Add your signature first, then come back to this slip.', rec.id); }
+          signed=true; err=null; draw();
+        };
+      } else {
+        F.innerHTML='<button class="btn sec" id="un">Undo</button><button class="btn go" id="ap">Approve</button>';
+        $('un').onclick=function(){ signed=false; draw(); };
+        $('ap').onclick=function(){ if(pinFresh()) instantApprove(); else actSheet('approve'); };
+      }
+    }
+    function removeFromQueue(){ var k=PT.queue.indexOf(rec.id);
+      if(k>=0){ PT.queue.splice(k,1);
+        /* after taking one out, the last place is length-1. Using length said
+           "Slip 3 of 2" and sent Next back to the top of the list. */
+        PT.qi = PT.queue.length ? Math.min(k, PT.queue.length-1) : -1; } }
+    function listSummary(){ var s=null; (PT.list&&PT.list.waiting||[]).forEach(function(x){ if(x.id===rec.id) s=x; }); return s; }
+
+    /* APPROVE IS INSTANT here too: the "Approved" state shows at once, the
+       server is told in the background. A refusal flips it back with the reason. */
+    function instantApprove(){
+      var sum=listSummary(), idx=-1; if(sum){ (PT.list.waiting||[]).forEach(function(x,i){ if(x.id===rec.id) idx=i; }); }
+      done='Approved and signed. It moves to the next approver.'; err=null; removeFromQueue();
+      if(sum){ moveToHistory(sum, false, null); sum.pending=true; if(isDesk()) drawHome(true); }
+      GLIDE=true; draw();
+      google.script.run
+        .withSuccessHandler(function(res){
+          if(sessionLost(res)) return;
+          if(res && res.ok===false){
+            done=null; signed=true; PT.queue.splice(PT.qi<0?PT.queue.length:PT.qi,0,rec.id);
+            if(res.reason==='pin'){ clearPin(); if(sum){ putBack(sum, idx, ''); delete sum.err; } draw(); return actSheet('approve'); }
+            err=res.message||'The server did not accept this approval.';
+            if(sum) putBack(sum, idx, err);
+            if(res.record){ rec=res.record; mine=rec.approvals[step-1]; signed=false; }
+            draw(); return;
+          }
+          touchPin(PT.pin);
+          rec=res.record; mine=rec.approvals[step-1]; signed=false;
+          if(sum){ delete sum.pending; PT.list.history.forEach(function(h){ if(h.id===rec.id) h.now = rec.status==='completed' ? 'Fully approved' : 'Waiting for the next approver'; }); if(isDesk()) drawHome(true); }
+          done = rec.status==='completed' ? 'Approved. That was the last signature, so the slip is now fully approved.' : 'Approved and signed. It moves to the next approver.';
+          GLIDE=true; draw();
+        })
+        .withFailureHandler(function(e){
+          done=null; signed=true; err=failMsg(e); PT.queue.splice(PT.qi<0?PT.queue.length:PT.qi,0,rec.id);
+          if(sum) putBack(sum, idx, err);
+          draw();
+        })
+        .approve(PT.token, rec.id, PT.pin);
+    }
+    function actSheet(kind){
+      actionSheet({
+        kind:kind, id:rec.id, txn:rec.txn,
+        onDone:function(record, wasReturn){
+          var sum=listSummary(); if(sum){ moveToHistory(sum, wasReturn, record); if(isDesk()) drawHome(true); }
+          rec=record; mine=rec.approvals[step-1]; signed=false; err=null; removeFromQueue();
+          done = wasReturn ? 'Returned to the requester with your remarks.'
+               : (rec.status==='completed' ? 'Approved. That was the last signature, so the slip is now fully approved.' : 'Approved and signed. It moves to the next approver.');
+          GLIDE=true; draw();
+        },
+        onHandled:function(res){
+          if(res.record){ rec=res.record; mine=rec.approvals[step-1]; done=null; signed=false; removeFromQueue(); draw(); }
+          else toast(res.message||'Could not complete.', true);
+        }
+      });
+    }
+    draw();
+  }
+
+  /* ---------- My account: signature + PIN ---------- */
+  function viewAccount(note, returnTo){
+    if(!isDesk()) stopPortalPoll();
+    PT.screen='account'; PT.curId='';
+    var me=PT.me;
+    setHeader('My account', me.name); setProgress(0,0,'');
+    var T=me.role==='attendant'?MID:slipTarget(); if(T===MID){ MID.className='mid'; FTR.hidden=false; }
+    T.innerHTML='<div class="pane">'+
+      '<button class="back" id="acBack">‹ Back</button>'+
+      (typeof note==='string'&&note?'<div class="msg warn">'+escq(note)+'</div>':'')+
+      '<div class="panel"'+(me.role==='attendant'?' hidden':'')+'><h3>My signature</h3>'+
+      '<p class="note" style="text-align:left;margin:0 0 8px">This picture is placed on a slip when you tap <b>Sign</b>. Draw it below, or choose a photo of your signature on white paper.</p>'+
+      '<div class="cursig">'+(me.sig?'<img src="'+me.sig+'" alt="Your saved signature"><span>Saved signature</span>':'<span>No signature saved yet</span>')+'</div>'+
+      '<div class="padwrap" style="min-height:150px;flex:none;height:160px"><div class="pad"><canvas id="sig"></canvas><div class="ph" id="sigPh">Sign here</div></div>'+
+      '<div class="padbar"><span>Draw with your finger or mouse.</span><span><label class="clr" style="display:inline-block;margin:0 6px 0 0">Choose photo<input id="sgFile" type="file" accept="image/*" hidden></label>'+
+      '<button type="button" class="clr" id="clr">Clear</button></span></div></div>'+
+      '<div class="msg err" id="sgErr" hidden style="margin-top:10px"></div><div class="msg ok" id="sgOk" hidden style="margin-top:10px"></div>'+
+      '<button class="btn go" id="sgSave" style="width:100%;margin-top:10px">Save my signature</button></div>'+
+      '<div class="panel" style="margin-top:12px"><h3>Change my PIN</h3>'+
+      '<div class="f"><label>Current PIN</label><input id="pnOld" class="pininput" type="password" inputmode="numeric" autocomplete="off"></div>'+
+      '<div class="f"><label>New PIN (4 to 8 digits)</label><input id="pnNew" class="pininput" type="password" inputmode="numeric" autocomplete="off"></div>'+
+      '<div class="msg err" id="pnE" hidden></div><div class="msg ok" id="pnO" hidden></div>'+
+      '<button class="btn" id="pnSave" style="width:100%">Change PIN</button></div></div>';
+    (me.role==='attendant'?FTR:footTarget()).innerHTML='';
+    initPad();
+    function leave(){ if(me.role==='attendant'){ viewScanner(); if(!SC.camBlocked) scTryLive(); return; } if(returnTo) openSlip(returnTo); else if(isDesk()) backToList(); else loadPortal(true); }
+    $('acBack').onclick=leave;
+    var photo='';
+    $('sgFile').onchange=function(){
+      var f=this.files&&this.files[0]; if(!f) return;
+      var rd=new FileReader();
+      rd.onload=function(){
+        var img=new Image();
+        img.onload=function(){
+          var w=Math.min(360,img.width), k=w/img.width, h=Math.round(img.height*k);
+          var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+          var cx=cv.getContext('2d'); cx.drawImage(img,0,0,w,h);
+          var d=cx.getImageData(0,0,w,h), px=d.data;
+          for(var i=0;i<px.length;i+=4){            // white paper -> transparent, ink stays
+            var lum=(px[i]*0.3+px[i+1]*0.59+px[i+2]*0.11);
+            var a=Math.max(0,Math.min(255,(235-lum)*3.2));
+            px[i]=10; px[i+1]=26; px[i+2]=90; px[i+3]=a;
+          }
+          cx.putImageData(d,0,0); photo=cv.toDataURL('image/png');
+          STATE.pad.clear();
+          var cs=document.querySelector('.cursig'); cs.innerHTML='<img src="'+photo+'" alt="Preview"><span>Preview — tap Save to keep it</span>';
+        };
+        img.src=rd.result;
+      };
+      rd.readAsDataURL(f);
+    };
+    $('clr').onclick=function(){ STATE.pad.clear(); photo=''; };
+    $('sgSave').onclick=function(){
+      var er=$('sgErr'), ok=$('sgOk'); er.hidden=true; ok.hidden=true;
+      var data = STATE.pad && !STATE.pad.isEmpty() ? STATE.pad.dataURL() : photo;
+      if(!data){ er.textContent='Draw your signature or choose a photo first.'; er.hidden=false; return; }
+      $('sgSave').disabled=true; $('sgSave').textContent='Saving…';
+      google.script.run
+        .withSuccessHandler(function(res){
+          $('sgSave').disabled=false; $('sgSave').textContent='Save my signature';
+          if(sessionLost(res)) return;
+          if(!res||!res.ok){ er.textContent=(res&&res.message)||'Could not save.'; er.hidden=false; return; }
+          PT.me=res.me; me=res.me; ok.textContent='Signature saved.'; ok.hidden=false;
+          var cs=document.querySelector('.cursig'); cs.innerHTML='<img src="'+me.sig+'" alt="Your saved signature"><span>Saved signature</span>';
+          STATE.pad.clear(); photo='';
+          if(returnTo) setTimeout(leave,900);
+        })
+        .withFailureHandler(function(e){ $('sgSave').disabled=false; $('sgSave').textContent='Save my signature'; er.textContent=failMsg(e); er.hidden=false; })
+        .saveMySignature(PT.token, data);
+    };
+    $('pnSave').onclick=function(){
+      var er=$('pnE'), ok=$('pnO'); er.hidden=true; ok.hidden=true;
+      $('pnSave').disabled=true;
+      google.script.run
+        .withSuccessHandler(function(res){
+          $('pnSave').disabled=false;
+          if(sessionLost(res)) return;
+          if(!res||!res.ok){ er.textContent=(res&&res.message)||'Could not change PIN.'; er.hidden=false; return; }
+          ok.textContent='PIN changed. Use the new one next time.'; ok.hidden=false; $('pnOld').value=''; $('pnNew').value='';
+        })
+        .withFailureHandler(function(e){ $('pnSave').disabled=false; er.textContent=failMsg(e); er.hidden=false; })
+        .changeMyPin(PT.token, $('pnOld').value, $('pnNew').value);
+    };
+  }
+
+
+
+  /* =========================================================
+   *  FUEL ATTENDANT — the scanner, inside this portal
+   *  (replaces the old standalone Scanner app)
+   *  Scan or type -> verdict -> Release (PIN) -> done. The release
+   *  sets the slip to COMPLETED; the requester just gets an email.
+   * ======================================================= */
+  var SC = { tab:'scan', live:false, camBlocked:false, scanner:null, fileScanner:null, busy:false,
+             lastCode:'', lastAt:0, cur:null, today:[], libWanted:false,
+             mode:'', stream:null, loop:0, why:'' };   // mode: 'native' (built in) or 'lib' (downloaded helper)
+  var SCI = {
+    camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+    keys:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M7 15h10"/>',
+    qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>',
+    check:'<path d="M20 6 9 17l-5-5"/>', x:'<path d="M18 6 6 18M6 6l12 12"/>',
+    alert:'<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+    ban:'<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>', search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    drop:'<path d="M12 2.7c-3.6 4.2-6 7.5-6 10.5a6 6 0 0 0 12 0c0-3-2.4-6.3-6-10.5z"/>', info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+    list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>', file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>'
+  };
+  function sci(n){ return '<svg class="sc-i" viewBox="0 0 24 24" aria-hidden="true">'+(SCI[n]||'')+'</svg>'; }
+
+  /* the QR library is only fetched for attendants, so approvers never wait for it */
+  function loadQrLib(cb){
+    if(typeof Html5Qrcode!=='undefined') return cb(true);
+    var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+    var done=false; function fin(ok){ if(done) return; done=true; cb(ok); }
+    s.onload=function(){ fin(typeof Html5Qrcode!=='undefined'); }; s.onerror=function(){ fin(false); };
+    setTimeout(function(){ fin(typeof Html5Qrcode!=='undefined'); }, 6000);
+    document.head.appendChild(s);
+  }
+  function scStopLive(){
+    /* Let the camera light go out properly. A stream left running keeps the
+       phone's camera busy, and the next start then fails. */
+    if(SC.loop){ clearInterval(SC.loop); SC.loop=0; }
+    if(SC.stream){
+      try{ SC.stream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){}
+      SC.stream=null;
+    }
+    var v=$('scVid'); if(v){ try{ v.srcObject=null; }catch(e){} }
+    return new Promise(function(res){
+      try{ var st=SC.scanner&&SC.scanner.getState&&SC.scanner.getState(); if(st===2||st===3){ SC.scanner.stop().then(res)['catch'](res); return; } }catch(e){}
+      res();
+    });
+  }
+  function scHello(){
+    var me=PT.me;
+    return '<div class="hello"><div class="who"><small>Fuel station · signed in as</small><b>'+escq(me.name)+'</b>'+
+      '<span>'+escq(me.designation||me.position)+' · releases fuel</span></div>'+
+      '<div class="hbtns">'+(pinFresh()?'<button id="hLock" class="lockb" title="Ask for my PIN again">🔓 PIN · '+pinMinsLeft()+'m</button>':'')+
+      '<button id="hAcc">My account</button><button id="hOut">Sign out</button></div></div>';
+  }
+  function scBindHello(){
+    $('hOut').onclick=function(){ var tk=PT.token; scStopLive(); saveToken(''); stopPortalPoll(); google.script.run.portalLogout(tk); clearPin(); PT.me=null; SC.today=[]; viewLogin(); };
+    $('hAcc').onclick=function(){ scStopLive().then(function(){ viewAccount(); }); };
+    if($('hLock')) $('hLock').onclick=function(){ clearPin(); scStopLive().then(scAgain); };   // never leave the camera running behind a redraw
+  }
+  function scPage(inner, foot){
+    MID.className='mid';
+    MID.innerHTML='<div class="pane"><div class="sc-wrap">'+inner+'</div></div>';
+    FTR.hidden=!foot; FTR.innerHTML=foot?'<div class="sc-foot">'+foot+'</div>':'';
+  }
+
+  /* ---------- 1. scan / type ---------- */
+  function viewScanner(opts){
+    opts=opts||{}; stopPortalPoll();
+    PT.screen='scan'; SC.busy=false; SC.cur=null;
+    setHeader('Fuel Release', 'Scan or type the slip code'); setProgress(0,0,'');
+    /* Why the live camera is not on, in words the attendant can act on. */
+    var WHY={
+      denied:   'The camera was blocked for this site. Tap the padlock in the address bar, allow Camera, then reload.',
+      nocam:    'No camera could be opened on this device.',
+      busy:     'The camera is being used by another app. Close it, then tap Try the camera again.',
+      nolib:    'The camera helper could not be downloaded on this network, so take a photo instead. It works the same.',
+      nonative: 'This browser cannot read a QR from the live camera, so take a photo instead. It works the same.',
+      appsscript:'The live camera is blocked inside Google Apps Script. Open the app from its web address to scan live, or take a photo — it works the same.'
+    };
+    var whyNote = SC.why && WHY[SC.why] ? WHY[SC.why]
+                : (ON_GITHUB ? '' : WHY.appsscript);
+    var scanCard = SC.live
+      ? '<div class="sc-card"><div class="sc-h">'+sci('qr')+'Point the camera at the QR</div>'+
+          '<div class="sc-finder">'+
+            (SC.mode==='native'
+              ? '<video id="scVid" playsinline muted autoplay></video><div class="sc-box"></div>'
+              : '<div id="reader"></div>')+
+          '</div>'+
+          '<div class="sc-live"><span><i></i>Camera on — hold the QR in the frame</span>'+
+            '<button class="linkb nowrap" id="toPhoto">Use a photo</button></div></div>'
+      : '<div class="sc-card"><div class="sc-hero"><div class="sc-art">'+sci('qr')+'<div class="sc-sweep"></div></div>'+
+          '<h2>Scan the slip’s QR code</h2><p>Take a clear photo of the QR on the requester’s phone or printout. It is checked right away.</p>'+
+          '<button class="sc-btn" id="shoot">'+sci('camera')+'Open camera</button>'+
+          (scNativeSupported()||SC.why==='busy'||SC.why==='denied'
+            ? '<button class="sc-btn ghost" id="retryCam">'+sci('camera')+'Try the live camera again</button>' : '')+
+          '<div class="sc-tips"><span>Fill the frame</span><span>Hold steady</span><span>Good light</span></div></div>'+
+          (opts.photoFail?'<div class="sc-note warn">'+sci('alert')+'<span>No QR code found in that photo. Move closer, hold steady and make sure it is well lit — or type the code.</span></div>'
+            :(whyNote?'<div class="sc-note'+(SC.why==='denied'||SC.why==='busy'?' warn':'')+'">'+sci('info')+'<span>'+whyNote+'</span></div>':''))+
+        '</div>';
+    var typeCard='<div class="sc-card"><div class="sc-h">'+sci('keys')+'Type the code</div>'+
+      '<div class="sc-code"><input id="scIn" type="text" placeholder="K7M2P" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="200"></div>'+
+      '<div class="sc-hint"><span id="scHl">5 letters and numbers, printed under the QR</span><span id="scHr"></span></div>'+
+      '<button class="sc-btn navy full" id="scGo" disabled>'+sci('search')+'Check this code</button></div>';
+    var how='<div class="sc-card"><div class="sc-h">'+sci('info')+'How it works</div><div class="sc-steps">'+
+      '<div class="sc-step"><b>1</b><div><strong>Check the slip</strong>Scan or type the code. Only fully approved slips turn green.</div></div>'+
+      '<div class="sc-step"><b>2</b><div><strong>Hand over the fuel</strong>Give exactly the liters shown.</div></div>'+
+      '<div class="sc-step"><b>3</b><div><strong>Tap Release</strong>The slip becomes COMPLETED and the requester gets an email. Nothing for them to confirm.</div></div>'+
+      '</div></div>';
+    var today=SC.today.length?'<div class="sc-card sc-today"><div class="sc-h">'+sci('list')+'Released on this device ('+SC.today.length+')</div>'+
+      SC.today.slice(0,6).map(function(t){ return '<div class="r"><span><code>'+escq(t.code)+'</code><br><small>'+escq(t.requester||'')+'</small></span>'+
+        '<span style="text-align:right"><b>'+escq(t.qty||'')+(t.qty?' L':'')+'</b><br><small>'+escq(t.at)+'</small></span></div>'; }).join('')+'</div>':'';
+    scPage(scHello()+
+      '<div class="sc-seg"><button data-t="scan" class="'+(SC.tab==='scan'?'on':'')+'">'+sci('qr')+'Scan QR</button>'+
+        '<button data-t="type" class="'+(SC.tab==='type'?'on':'')+'">'+sci('keys')+'Type code</button></div>'+
+      '<div class="sc-grid"><div class="sc-col" data-tab="scan" '+(SC.tab==='scan'?'':'hidden')+'>'+scanCard+'</div>'+
+        '<div class="sc-col" data-tab="type" '+(SC.tab==='type'?'':'hidden')+'>'+typeCard+today+how+'</div></div>', '');
+    scBindHello();
+    each(MID.querySelectorAll('.sc-seg button'),function(b){
+      b.onclick=function(){ SC.tab=b.getAttribute('data-t');
+        each(MID.querySelectorAll('.sc-seg button'),function(x){ x.classList.toggle('on',x===b); });
+        each(MID.querySelectorAll('[data-tab]'),function(c){ c.hidden=(c.getAttribute('data-tab')!==SC.tab); });
+        if(SC.tab==='type') setTimeout(function(){ $('scIn').focus(); },60);
+      };
+    });
+    if($('shoot')) $('shoot').onclick=function(){ picker.value=''; picker.click(); };
+    if($('retryCam')) $('retryCam').onclick=function(){
+      SC.why=''; SC.camBlocked=false;
+      scStopLive().then(function(){ scTryLive(); });
+    };
+    if($('toPhoto')) $('toPhoto').onclick=function(){ scStopLive().then(function(){ SC.live=false; SC.camBlocked=false; viewScanner(); }); };
+    var inp=$('scIn');
+    inp.oninput=function(){
+      var v=inp.value.trim(), up=v.toUpperCase(), link=/^https?:/i.test(v);
+      if(!link && inp.value!==up){ var p=inp.selectionStart; inp.value=up; try{ inp.setSelectionRange(p,p); }catch(e){} }
+      $('scGo').disabled=v.length<4;
+      if(link){ $('scHl').textContent='Link pasted — the code is read from it'; $('scHr').textContent=''; }
+      else if(/[01OIL]/.test(up) && up.indexOf('-')<0){ $('scHl').innerHTML='<b>Tip:</b> codes never use 0, O, 1, I or L'; $('scHr').textContent=up.length+' chars'; }
+      else { $('scHl').textContent='5 letters and numbers, printed under the QR'; $('scHr').textContent=v?up.length+' chars':''; }
+    };
+    inp.onkeydown=function(e){ if(e.key==='Enter' && !$('scGo').disabled) $('scGo').click(); };
+    $('scGo').onclick=function(){ scCheck(inp.value.trim()); };
+  }
+
+  /* ---------- the phone's own QR reader ----------
+     Chrome and Brave on Android can read a QR straight from the camera with
+     nothing downloaded. We try that first: it starts faster and still works on
+     an office network that blocks outside downloads. If the phone has no such
+     reader (iPhone/Safari), we fall back to the downloaded helper, and if that
+     cannot be fetched either, to taking a photo — which always works. */
+  function scNativeSupported(){
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && ('BarcodeDetector' in window));
+  }
+  function scNativeLive(onFail){
+    if(!scNativeSupported()) return onFail('nonative');
+    var det;
+    try { det = new window.BarcodeDetector({ formats:['qr_code'] }); }
+    catch(e){ return onFail('nonative'); }
+
+    navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' } }, audio:false })
+      .then(function(stream){
+        if(PT.screen!=='scan'){ try{ stream.getTracks().forEach(function(t){t.stop();}); }catch(e){} return; }
+        SC.stream=stream; SC.mode='native'; SC.live=true; SC.why=''; viewScanner();
+        var v=$('scVid');
+        if(!v){ try{ stream.getTracks().forEach(function(t){t.stop();}); }catch(e){} SC.stream=null; return onFail('noview'); }
+        v.srcObject=stream; v.setAttribute('playsinline',''); v.muted=true;
+        var play=v.play(); if(play && play['catch']) play['catch'](function(){});
+        if(SC.loop) clearInterval(SC.loop);
+        SC.loop=setInterval(function(){
+          if(PT.screen!=='scan' || SC.busy || !v.videoWidth) return;
+          det.detect(v).then(function(codes){
+            if(codes && codes.length && codes[0].rawValue) scDecoded(codes[0].rawValue);
+          })['catch'](function(){});
+        }, 220);                                    // about 4 looks a second: plenty, and easy on the battery
+      })
+      ['catch'](function(err){
+        var n=(err && err.name) || '';
+        onFail(n==='NotAllowedError' ? 'denied'
+             : n==='NotFoundError'   ? 'nocam'
+             : n==='NotReadableError'? 'busy' : 'nocam');
+      });
+  }
+
+  /* live camera is an upgrade; the photo button always works */
+  function scTryLive(){
+    /* 1st choice: the phone's built-in reader, nothing to download */
+    if(scNativeSupported()){ scNativeLive(function(why){ SC.why=why; scTryLibLive(why); }); return; }
+    scTryLibLive('nonative');
+  }
+  function scTryLibLive(why){
+    if(why==='denied'){ SC.live=false; SC.camBlocked=true; SC.why='denied'; if(PT.screen==='scan') viewScanner(); return; }
+    loadQrLib(function(ok){
+      if(!ok || PT.screen!=='scan'){
+        SC.camBlocked=!ok;
+        /* Keep the first, more specific reason. "The camera is in use" is more
+           use to the attendant than "the helper could not be downloaded". */
+        var specific = (SC.why==='denied'||SC.why==='busy'||SC.why==='nocam');
+        if(!ok && !specific) SC.why='nolib';
+        if(!ok && PT.screen==='scan') viewScanner();
+        return;
+      }
+      SC.live=true; SC.mode='lib'; viewScanner();
+      var settled=false;
+      function toPhoto(){ if(settled) return; settled=true; clearTimeout(giveUp); scStopLive(); SC.live=false; SC.camBlocked=true; if(PT.screen==='scan' && !SC.busy) viewScanner(); }
+      var giveUp=setTimeout(toPhoto, 4000);
+      try{
+        SC.scanner=new Html5Qrcode('reader', false);
+        SC.scanner.start({facingMode:'environment'},
+          {fps:10,qrbox:function(w,h){ var s=Math.floor(Math.min(w,h)*.72); return {width:s,height:s}; }},
+          function(t){ scDecoded(t); }, function(){}
+        ).then(function(){ if(settled){ try{ SC.scanner.stop(); }catch(e){} return; } settled=true; clearTimeout(giveUp); })['catch'](toPhoto);
+      }catch(e){ toPhoto(); }
+    });
+  }
+  function scDecoded(t){
+    if(SC.busy) return;
+    var n=Date.now(); if(t===SC.lastCode && n-SC.lastAt<2500) return;
+    SC.lastCode=t; SC.lastAt=n; scCheck(t);
+  }
+  function scDecodeFile(file){
+    return new Promise(function(res,rej){
+      if(!('BarcodeDetector' in window)) return rej('unsupported');
+      try{ var d=new window.BarcodeDetector({formats:['qr_code']});
+        createImageBitmap(file).then(function(b){ d.detect(b).then(function(c){ (c&&c.length&&c[0].rawValue)?res(c[0].rawValue):rej('none'); })['catch'](rej); })['catch'](rej);
+      }catch(e){ rej(e); }
+    })['catch'](function(){
+      return new Promise(function(res,rej){
+        loadQrLib(function(ok){
+          if(!ok) return rej('no-lib');
+          try{
+            if(!$('filereader')){ var d=document.createElement('div'); d.id='filereader'; d.style.display='none'; document.body.appendChild(d); }
+            if(!SC.fileScanner) SC.fileScanner=new Html5Qrcode('filereader', false);
+            SC.fileScanner.scanFile(file,false).then(res)['catch'](rej);
+          }catch(e){ rej(e); }
+        });
+      });
+    });
+  }
+  var picker=document.createElement('input');
+  picker.type='file'; picker.accept='image/*'; picker.setAttribute('capture','environment'); picker.hidden=true;
+  document.body.appendChild(picker);
+  picker.onchange=function(e){
+    var f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+    scWorking('Reading the QR code…','Hold on while the photo is checked.');
+    scStopLive().then(function(){ return scDecodeFile(f); })
+      .then(function(t){ scCheck(t); })
+      ['catch'](function(){ SC.live=false; SC.tab='scan'; viewScanner({photoFail:true}); });
+  };
+  function scWorking(t,m){
+    PT.screen='scanwork';
+    scPage('<div class="sc-card"><div class="sc-loader"><div class="sc-ring"></div><h2>'+escq(t)+'</h2><p>'+m+'</p></div></div>','');
+  }
+
+  /* ---------- 2. verdict ---------- */
+  var SC_STYLE={
+    ready:       {cls:'ok',  icon:'check', label:'APPROVED',     sub:'Ready to release'},
+    used:        {cls:'warn',icon:'alert', label:'ALREADY USED', sub:'Do not release again'},
+    voided:      {cls:'bad', icon:'ban',   label:'CANCELLED',    sub:'This slip was voided'},
+    not_approved:{cls:'bad', icon:'x',     label:'NOT APPROVED', sub:'Approvals are not complete'},
+    not_found:   {cls:'bad', icon:'search',label:'NOT FOUND',    sub:'No matching slip'}
+  };
+  function scCheck(text){
+    text=String(text||'').trim(); if(!text) return;
+    SC.busy=true; scStopLive();
+    scWorking('Checking the slip…','Looking up '+(/^https?:/i.test(text)?'the slip link':'<b>'+escq(text.toUpperCase())+'</b>')+' in the records.');
+    google.script.run
+      .withSuccessHandler(function(r){ if(sessionLost(r)) return; scResult(r||{state:'not_found',message:'No answer from the server.'}); })
+      .withFailureHandler(function(e){ scResult({state:'not_found',message:'Could not reach the records: '+failMsg(e)}); })
+      .scanCheck(PT.token, text);
+  }
+  function scBeep(ok){
+    try{ var C=window.AudioContext||window.webkitAudioContext; if(!C) return; SC.ac=SC.ac||new C();
+      var o=SC.ac.createOscillator(), g=SC.ac.createGain(); o.type='sine'; o.frequency.value=ok?880:220; g.gain.value=.12;
+      o.connect(g); g.connect(SC.ac.destination); o.start(); o.stop(SC.ac.currentTime+(ok?.15:.4)); }catch(e){}
+  }
+  function scResult(r){
+    PT.screen='scanres'; SC.cur=r; SC.busy=false;
+    var st=SC_STYLE[r.state]||SC_STYLE.not_found;
+    scBeep(r.state==='ready');
+    try{ if(navigator.vibrate) navigator.vibrate(r.state==='ready'?80:[60,60,60]); }catch(e){}
+    setHeader('Fuel Release', st.label+' · '+(r.code||''));
+    var items=(r.items||[]).length?'<ul class="sc-items">'+r.items.map(function(it){ return '<li><span>'+escq(it.d)+'</span><b>'+escq(it.q)+(it.q?' L':'')+'</b></li>'; }).join('')+'</ul>':'';
+    var dl=(r.fields||[]).length?'<div class="sc-card"><div class="sc-h">'+sci('file')+'Slip details</div><div class="sc-dl">'+
+      r.fields.map(function(f){ return '<span>'+escq(f[0])+'</span><b>'+escq(f[1])+'</b>'; }).join('')+
+      (r.releasedOn?'<span>Released on</span><b>'+escq(r.releasedOn)+'</b>':'')+(r.releasedBy?'<span>Released by</span><b>'+escq(r.releasedBy)+'</b>':'')+
+      '</div></div>':'';
+    var fuel=(r.totalQty||items)?'<div class="sc-card"><div class="sc-h">'+sci('drop')+(r.state==='ready'?'Fuel to release':'Fuel on this slip')+(r.requester?' · '+escq(r.requester):'')+'</div>'+
+      (r.totalQty?'<div class="sc-qty"><b>'+escq(r.totalQty)+'</b><span>Liters total</span></div>':'')+items+'</div>':'';
+    scPage(
+      '<div class="sc-verdict '+st.cls+'"><div class="sc-badge">'+sci(st.icon)+'</div><div><h2>'+st.label+'</h2><p>'+escq(r.message||st.sub)+'</p>'+
+        (r.code?'<div class="cd">'+escq(r.code)+'</div>':'')+'</div></div>'+
+      '<div class="sc-grid" style="margin-top:2px"><div class="sc-col">'+fuel+'</div><div class="sc-col">'+dl+'</div></div>',
+      r.state==='ready'
+        ? '<button class="sc-btn navy" id="scBack" style="flex:0 0 34%">Cancel</button><button class="sc-btn" id="scRel">'+sci('drop')+'Release fuel</button>'
+        : '<button class="sc-btn navy full" id="scBack">'+sci('qr')+'Scan another</button>');
+    $('scBack').onclick=function(){ scAgain(); };
+    if($('scRel')) $('scRel').onclick=function(){ scReleaseSheet(r); };
+  }
+  function scAgain(){ cancelAutoHome();
+    var go=function(){ SC.live=false; viewScanner(); if(!SC.camBlocked) scTryLive(); };
+    var p=scStopLive();                              // let the camera go first, or the next start finds it busy
+    if(p && p.then) p.then(go)['catch'](go); else go();
+  }
+
+  /* ---------- 3. release (PIN only when it has gone stale) ---------- */
+  function scReleaseSheet(r){
+    var askPin=!pinFresh();
+    var m=document.createElement('div'); m.className='sheet';
+    m.innerHTML='<div class="sheet-in"><h3>Release '+escq(r.totalQty||'')+(r.totalQty?' L ':'')+'for '+escq(r.code)+'?</h3>'+
+      '<p>Only tap Release after the fuel is handed over. This marks the slip <b>COMPLETED</b> and emails the requester.'+(askPin?' Type your PIN to confirm.':'')+'</p>'+
+      (askPin?'<input id="rlPin" class="pininput" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN">':'')+
+      '<div class="msg err" id="rlErr" hidden></div>'+
+      '<div class="sheet-btns"><button class="btn sec" id="rlC">Cancel</button><button class="btn go" id="rlS">Yes, release</button></div></div>';
+    document.body.appendChild(m);
+    void m.offsetWidth; requestAnimationFrame(function(){ m.classList.add('on'); });
+    setTimeout(function(){ var f=$('rlPin'); if(f) f.focus(); },300);
+    function close(){ m.classList.remove('on'); setTimeout(function(){ if(m.parentNode) m.parentNode.removeChild(m); },320); }
+    function perr(t){ var e=$('rlErr'); e.textContent=t; e.hidden=false; }
+    $('rlC').onclick=close; m.onclick=function(ev){ if(ev.target===m) close(); };
+    function go(){
+      var pin=askPin?($('rlPin').value||'').trim():PT.pin;
+      if(!pin) return perr('Type your PIN.');
+      $('rlS').disabled=true; $('rlC').disabled=true; $('rlS').textContent='Releasing…';
+      google.script.run
+        .withSuccessHandler(function(res){
+          if(sessionLost(res)){ close(); return; }
+          if(!res||!res.ok){
+            $('rlS').disabled=false; $('rlC').disabled=false; $('rlS').textContent='Yes, release';
+            if(res&&res.reason==='pin'){ clearPin(); if(askPin){ $('rlPin').value=''; $('rlPin').focus(); return perr(res.message); } close(); return scReleaseSheet(r); }
+            close(); return scResult(mixObj(r,{ state:res&&res.state||'not_found', message:(res&&res.message)||'Could not release.' }));
+          }
+          touchPin(pin); close(); scDone(res);
+        })
+        .withFailureHandler(function(e){ $('rlS').disabled=false; $('rlC').disabled=false; $('rlS').textContent='Yes, release'; perr(failMsg(e)); })
+        .scanRelease(PT.token, r.code, pin);
+    }
+    $('rlS').onclick=go;
+    if($('rlPin')) $('rlPin').onkeydown=function(e){ if(e.key==='Enter') go(); };
+  }
+  function mixObj(a,b){ var o={},k; for(k in a) o[k]=a[k]; for(k in b) o[k]=b[k]; return o; }
+
+  /* ---------- 4. done ---------- */
+  function scDone(res){
+    PT.screen='scandone';
+    SC.today.unshift({ code:res.code, requester:res.requester, qty:res.totalQty, at:res.releasedOn });
+    setHeader('Fuel Release','Completed · '+res.code);
+    scPage('<div class="sc-done"><div class="sc-tick"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div>'+
+      '<h2>Fuel released</h2>'+
+      '<p><b>'+escq(res.totalQty||'')+(res.totalQty?' L':'')+'</b> for <b>'+escq(res.code)+'</b>'+(res.requester?' · '+escq(res.requester):'')+'<br>'+
+      'Released '+escq(res.releasedOn)+' by '+escq(res.releasedBy)+'.</p>'+
+      '<div class="sc-chip">✓ SLIP COMPLETED</div>'+
+      '<p style="margin-top:12px">'+(res.emailedTo?'The requester was notified by email ('+escq(res.emailedTo)+').':'')+'</p>'+
+      (res.warning?'<div class="sc-note warn" style="text-align:left">'+sci('alert')+'<span>'+escq(res.warning)+'</span></div>':'')+
+      '</div>',
+      '<button class="sc-btn full" id="scNext">'+sci('qr')+'Scan next slip</button>');
+    $('scNext').onclick=scAgain;
+    autoHome(5,'Next scan',scAgain);
+  }
+  /* ---------- auto-return: a 5-second countdown with a "Stay here" button ---------- */
+  var AH={ timer:null, el:null };
+  function cancelAutoHome(){
+    if(AH.timer){ clearInterval(AH.timer); AH.timer=null; }
+    var el=AH.el; AH.el=null;
+    if(el){ el.classList.remove('on'); setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },400); }
+  }
+  function autoHome(secs, label, go){
+    cancelAutoHome();
+    var left=secs, el=document.createElement('div'); el.className='ah'; el.setAttribute('role','status');
+    el.innerHTML='<svg viewBox="0 0 24 24"><circle class="bgc" cx="12" cy="12" r="10"/><circle class="fgc" cx="12" cy="12" r="10"/></svg>'+
+      '<span>'+label+' in <b>'+left+'</b>…</span><button type="button">Stay here</button>';
+    document.body.appendChild(el); AH.el=el;
+    void el.offsetWidth; requestAnimationFrame(function(){ el.classList.add('on'); });
+    el.querySelector('button').onclick=cancelAutoHome;
+    var ring=el.querySelector('.fgc'), num=el.querySelector('b');
+    AH.timer=setInterval(function(){
+      left--; if(num) num.textContent=Math.max(left,0);
+      if(ring) ring.style.strokeDashoffset=String(63*(secs-left)/secs);
+      if(left<=0){ cancelAutoHome(); go(); }
+    },1000);
+  }
+
+
+  /* ===== boot ===== */
+  (function(){ viewPortal(); })();
+
+  }
+
+  /* =====================================================================
+   *  GETTING STARTED — the same few lines whether this page came from
+   *  Apps Script or from GitHub.
+   *
+   *    gated      = this screen needs the office passcode
+   *    not gated  = a link that was emailed to a driver; it just opens
+   * ===================================================================== */
+  if(ON_GITHUB){
+    window.google = { script: { run: makeRunner(null,null) } };
+    document.title = SITE.title;
+  }
+
+  var P = ON_GITHUB ? urlParams()
+                    : ((BOOT && BOOT.params) || { view:(BOOT && BOOT.view) || 'portal' });
+  var PUBLIC_VIEWS = [];
+  /* A link emailed to a driver: it opens with no passcode, ever. */
+  var PUBLIC_NOW = PUBLIC_VIEWS.indexOf(P.view || 'portal') >= 0;
+
+  function startFailed(msg){
+    document.body.innerHTML='<div style="max-width:430px;margin:12vh auto;padding:24px;text-align:center;'+
+      'font:400 15px/1.6 system-ui,sans-serif;color:#1d1d1f">'+
+      '<h2 style="margin:0 0 10px;font-size:1.3rem">This page could not reach the system</h2>'+
+      '<p style="color:#626a78">'+String(msg).replace(/[<>&]/g,'')+'</p>'+
+      '<button id="rt" style="margin-top:14px;padding:12px 20px;border:0;border-radius:10px;'+
+      'background:#F26522;color:#fff;font-weight:600;cursor:pointer">Try again</button>'+
+      '<button id="rc" style="margin-top:14px;margin-left:8px;padding:12px 20px;border:1px solid #D3DAE5;border-radius:10px;'+
+      'background:#fff;color:#08295F;font-weight:600;cursor:pointer">Connect again</button></div>';
+    var r=document.getElementById('rt'); if(r) r.onclick=function(){ location.reload(); };
+    var c=document.getElementById('rc'); if(c) c.onclick=function(){ setApiUrl(''); forgetPass(); location.reload(); };
+  }
+
+  /* the passcode and the startup details in one trip */
+  /* The two /exec addresses look alike, so check we were handed the right one. */
+  function wrongApp(b){ return (b && !(b.data && b.data.positions)) ? 'That address is the Requester app. Paste the Approver /exec address instead.' : ''; }
+
+  function unlock(){
+    google.script.run
+      .withSuccessHandler(function(res){
+        if(res && res.ok && res.boot){
+          var w = wrongApp(res.boot);
+          if(w){ setApiUrl(''); askConnect(w, start); return; }
+          BOOT = res.boot; main(); return;
+        }
+        forgetPass();
+        askConnect((res && res.error) || '', unlock);
+      })
+      .withFailureHandler(function(e){ startFailed((e && e.message) || 'Could not reach the app.'); })
+      .gateBoot(PASS, P, DEVICE);
+  }
+
+  /* a public link, served from GitHub: fetch the details, no passcode */
+  function openStart(){
+    apiCall('boot', [P], function(b){
+      if(!b){ startFailed('The app answered, but sent nothing back.'); return; }
+      var w = wrongApp(b);
+      if(w){ setApiUrl(''); askConnect(w, start); return; }
+      BOOT = b; main();
+    }, function(e){ startFailed((e && e.message) || 'Could not reach the app.'); });
+  }
+
+  /* ---------- getting started ----------
+     Nothing is asked twice. Whatever this device already knows is used, and
+     the Connect screen only appears when something is genuinely missing. */
+  function start(){
+    if(ON_GITHUB && !apiUrl()){ askConnect('', start); return; }  // never been connected here
+    if(PUBLIC_NOW){ ON_GITHUB ? openStart() : main(); return; }   // a driver's link: straight in
+    if(ON_GITHUB){ unlock(); return; }                            // asks only if the passcode is missing or wrong
+    if(BOOT && BOOT.gate){ PASS ? unlock() : askConnect('', unlock); return; }
+    main();                                                        // Apps Script, no passcode set up
+  }
+  start();
+
+</script>
+</body>
+</html>
